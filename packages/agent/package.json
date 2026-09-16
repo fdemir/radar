@@ -1,0 +1,7 @@
+{
+  "name": "@radar/agent", "private": true, "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "check-types": "tsc --noEmit" },
+  "dependencies": { "@radar/core": "workspace:*", "@langchain/langgraph": "1.4.15", "zod": "catalog:" },
+  "devDependencies": { "@radar/config": "workspace:*", "typescript": "catalog:" }
+}
