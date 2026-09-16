@@ -11,6 +11,7 @@ import {
 
 import "./index.css";
 import type { Route } from "./+types/root";
+import radarLogo from "./assets/radar.svg";
 import Header from "./components/header";
 import { ThemeProvider } from "./components/theme-provider";
 
@@ -19,6 +20,7 @@ export function meta() {
 }
 
 export const links: Route.LinksFunction = () => [
+  { rel: "icon", type: "image/svg+xml", sizes: "any", href: radarLogo },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
   {

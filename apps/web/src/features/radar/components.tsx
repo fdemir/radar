@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowUpRight, Bookmark, Code2, Compass, Music2, Plane, Radar, Search } from "lucide-react";
+import { ArrowUpRight, Bookmark, Code2, Compass, Music2, Plane, Search } from "lucide-react";
 import { Link } from "react-router";
 import { Button, buttonVariants } from "@radar/ui/components/button";
 import { Card } from "@radar/ui/components/card";
@@ -18,13 +18,14 @@ import {
 } from "@radar/ui/components/empty";
 import { Input } from "@radar/ui/components/input";
 import { cn } from "@radar/ui/lib/utils";
+import radarLogo from "@/assets/radar.svg";
 import { formatDate, type Category, type Finding, type Task } from "./model";
 import { useWorkspace } from "./context";
 
 export function Brand() {
   return (
     <span className="inline-flex items-center gap-2 font-display text-[27px] font-bold tracking-[-0.06em]">
-      <Radar strokeWidth={1.6} size={26} className="text-sky-accent" />
+      <img src={radarLogo} alt="" width={28} height={28} className="size-7 shrink-0" />
       radar
     </span>
   );
