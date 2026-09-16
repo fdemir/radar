@@ -19,12 +19,12 @@ Open [localhost:5174](http://localhost:5174). The API runs on port 3000. Local a
 
 Add these values to `apps/server/.env` to enable research:
 
-| Variable | Purpose |
-| --- | --- |
-| `OPENAI_API_KEY` | Model provider key |
-| `OPENAI_BASE_URL` | Compatible API URL, including `/v1` |
-| `OPENAI_MODEL` | Model available through your provider |
-| `TINYFISH_API_KEY` | TinyFish Search and Fetch key |
+| Variable           | Purpose                               |
+| ------------------ | ------------------------------------- |
+| `OPENAI_API_KEY`   | Model provider key                    |
+| `OPENAI_BASE_URL`  | Compatible API URL, including `/v1`   |
+| `OPENAI_MODEL`     | Model available through your provider |
+| `TINYFISH_API_KEY` | TinyFish Search and Fetch key         |
 
 The model must support Chat Completions with JSON responses. The default is `gpt-5.6-luna`; change it if your provider uses another model name.
 
@@ -47,20 +47,25 @@ Discord is deferred. There is no Discord login or bot in this version.
 
 ## Project layout
 
-| Path | Responsibility |
-| --- | --- |
-| `apps/web` | Letters UI and public examples |
-| `apps/server` | Hono API, authentication, task ownership |
-| `apps/worker` | Scheduled checks, queue consumption, email delivery |
-| `packages/agent` | LangGraph research, TinyFish, model calls |
-| `packages/core` | Shared validation and schedule rules |
-| `packages/db` | D1 schema, migrations, queries, atomic finding delivery records |
-| `packages/auth` | Better Auth configuration |
-| `packages/notifications` | Resend adapter |
-| `packages/ui` | Shared components and styles |
-| `packages/infra` | Alchemy Cloudflare resources |
+| Path                     | Responsibility                                                  |
+| ------------------------ | --------------------------------------------------------------- |
+| `apps/web`               | Letters UI and public examples                                  |
+| `apps/server`            | Hono API, authentication, task ownership                        |
+| `apps/worker`            | Scheduled checks, queue consumption, email delivery             |
+| `packages/agent`         | LangGraph research, TinyFish, model calls                       |
+| `packages/core`          | Shared validation and schedule rules                            |
+| `packages/db`            | D1 schema, migrations, queries, atomic finding delivery records |
+| `packages/auth`          | Better Auth configuration                                       |
+| `packages/notifications` | Resend adapter                                                  |
+| `packages/ui`            | Shared components and styles                                    |
+| `packages/infra`         | Alchemy Cloudflare resources                                    |
 
 ## Checks
+
+Use `pnpm format` to format the code and `pnpm format:check` to check it without changing files.
+`pnpm lint` runs the format check before Oxlint. `pnpm lint:fix` fixes lint issues and formats the code.
+All packages share the root Prettier settings: two spaces, double quotes, semicolons, and a 100-character print width.
+Generated files, database migrations, the lockfile, and ignored files are excluded.
 
 ```sh
 pnpm lint

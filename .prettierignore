@@ -1,0 +1,5 @@
+# Prettier also respects the root .gitignore.
+pnpm-lock.yaml
+**/.react-router/
+**/src/env.ts
+packages/db/src/migrations/
