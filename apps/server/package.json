@@ -6,7 +6,8 @@
     "build": "tsdown",
     "check-types": "tsc --noEmit",
     "compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server",
-    "env:generate": "varlock codegen"
+    "env:generate": "varlock codegen",
+    "test": "vitest run"
   },
   "dependencies": {
     "@radar/auth": "workspace:*",
@@ -21,7 +22,9 @@
     "@radar/config": "workspace:*",
     "@radar/infra": "workspace:*",
     "@types/node": "catalog:",
+    "miniflare": "4.20260730.0",
     "tsdown": "^0.23.0",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^4.1.11"
   }
 }

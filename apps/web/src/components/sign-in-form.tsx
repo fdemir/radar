@@ -3,54 +3,57 @@ import { Input } from "@radar/ui/components/input";
 import { Label } from "@radar/ui/components/label";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { useState } from "react";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
-import Loader from "./loader";
-
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
   const navigate = useNavigate();
-  const { isPending } = authClient.useSession();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
     onSubmit: async ({ value }) => {
-      await authClient.signIn.email(
-        {
-          email: value.email,
+      setSubmitError(null);
+      try {
+        const { error } = await authClient.signIn.username({
+          username: value.username.trim(),
           password: value.password,
-        },
-        {
-          onSuccess: () => {
-            navigate("/dashboard");
-            toast.success("Sign in successful");
-          },
-          onError: (error) => {
-            toast.error(error.error.message || error.error.statusText);
-          },
-        },
-      );
+        });
+        if (error) {
+          setSubmitError(
+            error.status === 429
+              ? "Too many attempts. Please wait a minute and try again."
+              : error.message || "Unable to continue. Please try again.",
+          );
+          return;
+        }
+        navigate("/tasks", { replace: true });
+      } catch {
+        setSubmitError("Unable to connect. Please try again.");
+      }
     },
     validators: {
       onSubmit: z.object({
-        email: z.email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
+        username: z.string().trim().min(1, "Enter your username"),
+        password: z.string().min(1, "Enter your password"),
       }),
     },
   });
 
-  if (isPending) {
-    return <Loader />;
-  }
-
   return (
     <div className="mx-auto w-full mt-10 max-w-md p-6">
       <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
+
+      {submitError && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          {submitError}
+        </p>
+      )}
 
       <form
         onSubmit={(e) => {
@@ -61,23 +64,31 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         className="space-y-4"
       >
         <div>
-          <form.Field name="email">
+          <form.Field name="username">
             {(field) => (
               <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
+                <Label htmlFor={field.name}>Username</Label>
                 <Input
                   id={field.name}
+                  required
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  autoComplete="username"
+                  aria-invalid={field.state.meta.errors.length > 0}
+                  aria-describedby={`${field.name}-errors`}
                   name={field.name}
-                  type="email"
+                  type="text"
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
+                <div id={`${field.name}-errors`} aria-live="polite">
+                  {field.state.meta.errors.map((error) => (
+                    <p key={error?.message} className="text-red-500">
+                      {error?.message}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
           </form.Field>
@@ -90,24 +101,33 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                 <Label htmlFor={field.name}>Password</Label>
                 <Input
                   id={field.name}
+                  required
+                  autoComplete="current-password"
+                  aria-invalid={field.state.meta.errors.length > 0}
+                  aria-describedby={`${field.name}-errors`}
                   name={field.name}
                   type="password"
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
-                {field.state.meta.errors.map((error) => (
-                  <p key={error?.message} className="text-red-500">
-                    {error?.message}
-                  </p>
-                ))}
+                <div id={`${field.name}-errors`} aria-live="polite">
+                  {field.state.meta.errors.map((error) => (
+                    <p key={error?.message} className="text-red-500">
+                      {error?.message}
+                    </p>
+                  ))}
+                </div>
               </div>
             )}
           </form.Field>
         </div>
 
         <form.Subscribe
-          selector={(state) => ({ canSubmit: state.canSubmit, isSubmitting: state.isSubmitting })}
+          selector={(state) => ({
+            canSubmit: state.canSubmit,
+            isSubmitting: state.isSubmitting,
+          })}
         >
           {({ canSubmit, isSubmitting }) => (
             <Button type="submit" className="w-full" disabled={!canSubmit || isSubmitting}>

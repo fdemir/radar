@@ -28,6 +28,10 @@
     "destroy": {
       "cache": false,
       "interactive": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
     }
   },
   "globalEnv": [

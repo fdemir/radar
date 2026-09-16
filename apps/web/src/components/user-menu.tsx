@@ -9,12 +9,15 @@ import {
   DropdownMenuTrigger,
 } from "@radar/ui/components/dropdown-menu";
 import { Skeleton } from "@radar/ui/components/skeleton";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router";
 
 import { authClient } from "@/lib/auth-client";
 
 export default function UserMenu() {
   const navigate = useNavigate();
+  const [signingOut, setSigningOut] = useState(false);
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
@@ -23,16 +26,16 @@ export default function UserMenu() {
 
   if (!session) {
     return (
-      <Link to="/login">
-        <Button variant="outline">Sign In</Button>
-      </Link>
+      <Button variant="outline" render={<Link to="/login" />}>
+        Sign In
+      </Button>
     );
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" />}>
-        {session.user.name}
+        {session.user.username}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="bg-card">
         <DropdownMenuGroup>
@@ -41,17 +44,24 @@ export default function UserMenu() {
           <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"
-            onClick={() => {
-              authClient.signOut({
-                fetchOptions: {
-                  onSuccess: () => {
-                    navigate("/");
-                  },
-                },
-              });
+            disabled={signingOut}
+            onClick={async () => {
+              setSigningOut(true);
+              try {
+                const { error } = await authClient.signOut();
+                if (error) {
+                  toast.error("Unable to sign out. Please try again.");
+                  return;
+                }
+                navigate("/login", { replace: true });
+              } catch {
+                toast.error("Unable to connect. Please try again.");
+              } finally {
+                setSigningOut(false);
+              }
             }}
           >
-            Sign Out
+            {signingOut ? "Signing out..." : "Sign Out"}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

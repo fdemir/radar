@@ -46,6 +46,20 @@ pnpm run dev
 Open [http://localhost:5173](http://localhost:5173) in your browser to see the web application.
 The API is running at [http://localhost:3000](http://localhost:3000).
 
+## Authentication
+
+Registration requires a username, email, and password. Sign-in uses the username and password; usernames are case-insensitive. `/tasks` requires a session and currently displays an empty state. Email verification, password recovery, and Discord account linking are not implemented yet.
+
+Apply the checked-in migration before using auth. HTTPS uses secure, HTTP-only cookies; local HTTP development uses SameSite=Lax cookies. Deploy the web and API on the same site (for example, `app.example.com` and `api.example.com`) to avoid third-party cookie restrictions. `CORS_ORIGIN` must match the web origin exactly.
+
+Run the auth integration tests against an isolated local D1 database, without a Cloudflare account:
+
+```bash
+pnpm test
+pnpm check-types
+pnpm build
+```
+
 ## UI Customization
 
 React web apps in this stack share shadcn/ui primitives through `packages/ui`.

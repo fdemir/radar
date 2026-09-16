@@ -16,7 +16,8 @@
     "deploy": "turbo run deploy -F @radar/infra --",
     "destroy": "turbo run destroy -F @radar/infra --",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
-    "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/"
+    "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
+    "test": "turbo run test"
   },
   "dependencies": {
     "zod": "catalog:"
