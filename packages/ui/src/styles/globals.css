@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@source "../../../apps/**/*.{ts,tsx}";
+@source "../../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
 @custom-variant dark (&:is(.dark *));
@@ -22,8 +22,8 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: #e6e6eb;
+  --input: #dcdce3;
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.809 0.105 251.813);
   --chart-2: oklch(0.623 0.214 259.815);
@@ -76,6 +76,9 @@
 }
 
 @theme inline {
+  --color-sky-accent: #2597d0;
+  --background-image-sky: linear-gradient(180deg, #779bc1 0%, #9abfda 58%, #cbdcec 100%);
+  --shadow-card: 0 1px 2px rgb(16 55 132 / 2.5%), 0 17px 37px rgb(16 55 132 / 3%);
   --font-sans: "Inter", sans-serif;
   --font-display: "Manrope", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -123,9 +126,51 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply font-sans bg-background text-foreground;
+    @apply bg-background font-sans text-sm text-foreground antialiased;
   }
   html {
-    @apply font-sans;
+    @apply scroll-smooth font-sans;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display font-semibold tracking-[-0.04em];
+  }
+
+  h1 {
+    @apply text-[34px] leading-[1.1] sm:text-[44px];
+  }
+
+  h2 {
+    @apply text-[28px] leading-tight;
+  }
+
+  h3 {
+    @apply text-xl leading-snug;
+  }
+
+  p {
+    @apply text-muted-foreground;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    @apply cursor-pointer;
+  }
+
+  a:focus-visible {
+    @apply rounded-sm outline-2 outline-offset-4 outline-ring;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
