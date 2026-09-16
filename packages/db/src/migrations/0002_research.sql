@@ -64,10 +64,10 @@ CREATE TABLE `usage` (
 );
 --> statement-breakpoint
 CREATE TRIGGER run_validate BEFORE INSERT ON run BEGIN
-  SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM task WHERE id = NEW.task_id AND user_id = NEW.user_id AND status = 'active') THEN RAISE(ABORT, 'task_not_active') END;
-  SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM task WHERE id = NEW.task_id AND revision = NEW.revision) THEN RAISE(ABORT, 'task_changed') END;
-  SELECT CASE WHEN EXISTS (SELECT 1 FROM usage WHERE user_id = NEW.user_id AND day = strftime('%Y-%m-%d', NEW.started / 1000, 'unixepoch') AND checks >= 30) THEN RAISE(ABORT, 'daily_run_limit') END;
-  SELECT CASE WHEN EXISTS (SELECT 1 FROM run WHERE task_id = NEW.task_id AND started > NEW.started - 10000) THEN RAISE(ABORT, 'run_cooldown') END;
+  SELECT RAISE(ABORT, 'task_not_active') WHERE NOT EXISTS (SELECT 1 FROM task WHERE id = NEW.task_id AND user_id = NEW.user_id AND status = 'active');
+  SELECT RAISE(ABORT, 'task_changed') WHERE NOT EXISTS (SELECT 1 FROM task WHERE id = NEW.task_id AND revision = NEW.revision);
+  SELECT RAISE(ABORT, 'daily_run_limit') WHERE EXISTS (SELECT 1 FROM usage WHERE user_id = NEW.user_id AND day = strftime('%Y-%m-%d', NEW.started / 1000, 'unixepoch') AND checks >= 30);
+  SELECT RAISE(ABORT, 'run_cooldown') WHERE EXISTS (SELECT 1 FROM run WHERE task_id = NEW.task_id AND started > NEW.started - 10000);
 END;
 --> statement-breakpoint
 CREATE TRIGGER run_usage AFTER INSERT ON run BEGIN
