@@ -26,7 +26,8 @@
     "react-router": "^8.3.1",
     "sonner": "catalog:",
     "varlock": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@radar/core": "workspace:*"
   },
   "devDependencies": {
     "@radar/config": "workspace:*",

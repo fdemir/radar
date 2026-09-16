@@ -45,7 +45,7 @@ beforeEach(async () => {
       d1.prepare(`DELETE FROM "${table}"`),
     ),
   );
-  app = createApp(createAuth(config, createDb({ DB: d1 })), config.CORS_ORIGIN);
+  app = createApp(createAuth(config, createDb({ DB: d1 })), config.CORS_ORIGIN, createDb({ DB: d1 }));
 });
 
 function request(
@@ -99,7 +99,7 @@ describe("username accounts and sessions", () => {
     expect(stored?.password).toBeTruthy();
     expect(stored?.password).not.toBe(password);
 
-    app = createApp(createAuth(config, createDb({ DB: d1 })), config.CORS_ORIGIN);
+    app = createApp(createAuth(config, createDb({ DB: d1 })), config.CORS_ORIGIN, createDb({ DB: d1 }));
     const me = await request(`/api/me?userId=${bobBody.user.id}`, undefined, aliceCookie);
     expect(me.status).toBe(200);
     expect(me.headers.get("cache-control")).toBe("no-store");
@@ -214,7 +214,7 @@ describe("username accounts and sessions", () => {
       BETTER_AUTH_URL: "https://api.example.com",
       CORS_ORIGIN: "https://app.example.com",
     };
-    app = createApp(createAuth(production, createDb({ DB: d1 })), production.CORS_ORIGIN);
+    app = createApp(createAuth(production, createDb({ DB: d1 })), production.CORS_ORIGIN, createDb({ DB: d1 }));
     const response = await app.request(`${production.BETTER_AUTH_URL}/api/auth/sign-up/email`, {
       method: "POST",
       headers: {
@@ -245,7 +245,7 @@ describe("username accounts and sessions", () => {
       });
       expect(response.status).toBe(401);
     }
-    app = createApp(createAuth(config, createDb({ DB: d1 })), config.CORS_ORIGIN);
+    app = createApp(createAuth(config, createDb({ DB: d1 })), config.CORS_ORIGIN, createDb({ DB: d1 }));
     const blocked = await request("/api/auth/sign-in/username", {
       username: "unknown",
       password,

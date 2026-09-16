@@ -14,7 +14,8 @@
     "@libsql/client": "0.18.0",
     "drizzle-orm": "^0.45.2",
     "libsql": "0.5.29",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@radar/core": "workspace:*"
   },
   "devDependencies": {
     "@radar/config": "workspace:*",

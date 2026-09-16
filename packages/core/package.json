@@ -1,0 +1,9 @@
+{
+  "name": "@radar/core",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts", "./*": "./src/*.ts" },
+  "scripts": { "check-types": "tsc --noEmit" },
+  "dependencies": { "zod": "catalog:" },
+  "devDependencies": { "@radar/config": "workspace:*", "typescript": "catalog:" }
+}

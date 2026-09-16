@@ -90,6 +90,9 @@ importers:
       '@radar/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@radar/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@radar/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -136,6 +139,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@radar/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@radar/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -234,11 +240,27 @@ importers:
 
   packages/config: {}
 
+  packages/core:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.5
+    devDependencies:
+      '@radar/config':
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/db:
     dependencies:
       '@libsql/client':
         specifier: 0.18.0
         version: 0.18.0
+      '@radar/core':
+        specifier: workspace:*
+        version: link:../core
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@cloudflare/workers-types@5.20260916.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.18.0)(kysely@0.29.6)

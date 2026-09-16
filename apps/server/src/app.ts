@@ -1,9 +1,11 @@
+import type { Database } from "@radar/db";
+import { workspaceRoutes } from "./workspace";
 import type { createAuth } from "@radar/auth";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
-export function createApp(auth: ReturnType<typeof createAuth>, origin: string) {
+export function createApp(auth: ReturnType<typeof createAuth>, origin: string, db: Database) {
   const app = new Hono();
 
   app.use(logger());
@@ -11,7 +13,7 @@ export function createApp(auth: ReturnType<typeof createAuth>, origin: string) {
     "/*",
     cors({
       origin,
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true,
     }),
@@ -29,6 +31,7 @@ export function createApp(auth: ReturnType<typeof createAuth>, origin: string) {
       },
     });
   });
+  app.route("/api", workspaceRoutes(auth, origin, db));
   app.get("/", (c) => c.text("OK"));
 
   return app;

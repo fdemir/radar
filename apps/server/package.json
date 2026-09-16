@@ -16,7 +16,8 @@
     "better-auth": "catalog:",
     "hono": "^4.13.7",
     "varlock": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@radar/core": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
