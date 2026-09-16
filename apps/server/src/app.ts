@@ -4,7 +4,12 @@ import type { createAuth } from "@radar/auth";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-export function createApp(auth: ReturnType<typeof createAuth>, origin: string, db: Database, services?: Services) {
+export function createApp(
+  auth: ReturnType<typeof createAuth>,
+  origin: string,
+  db: Database,
+  services?: Services,
+) {
   const app = new Hono();
 
   app.use(
@@ -18,8 +23,15 @@ export function createApp(auth: ReturnType<typeof createAuth>, origin: string, d
   );
 
   app.on(["POST", "GET"], "/api/auth/*", (c) => {
-    if (services && !services.emailAvailable && ["/api/auth/send-verification-email", "/api/auth/request-password-reset"].includes(c.req.path)) {
-      return c.json({ error: "Email is not available yet.", message: "Email is not available yet." }, 503);
+    if (
+      services &&
+      !services.emailAvailable &&
+      ["/api/auth/send-verification-email", "/api/auth/request-password-reset"].includes(c.req.path)
+    ) {
+      return c.json(
+        { error: "Email is not available yet.", message: "Email is not available yet." },
+        503,
+      );
     }
     return auth.handler(c.req.raw);
   });

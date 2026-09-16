@@ -28,17 +28,51 @@ export function createAuth(
     emailAndPassword: {
       enabled: true,
       revokeSessionsOnPasswordReset: true,
-      ...(email ? { sendResetPassword: async ({ user, url, token }: { user: { email: string }; url: string; token: string }) => {
-        await email.send(user.email, "Reset your Radar password", `Reset your password:\n${url}\n\nIf you did not request this, ignore this email.`, await emailKey("reset", token));
-      } } : {}),
+      ...(email
+        ? {
+            sendResetPassword: async ({
+              user,
+              url,
+              token,
+            }: {
+              user: { email: string };
+              url: string;
+              token: string;
+            }) => {
+              await email.send(
+                user.email,
+                "Reset your Radar password",
+                `Reset your password:\n${url}\n\nIf you did not request this, ignore this email.`,
+                await emailKey("reset", token),
+              );
+            },
+          }
+        : {}),
     },
-    ...(email ? { emailVerification: {
-      sendOnSignUp: false,
-      autoSignInAfterVerification: false,
-      sendVerificationEmail: async ({ user, url, token }: { user: { email: string }; url: string; token: string }) => {
-        await email.send(user.email, "Verify your Radar email", `Verify your email to receive new findings:\n${url}`, await emailKey("verify", token));
-      },
-    } } : {}),
+    ...(email
+      ? {
+          emailVerification: {
+            sendOnSignUp: false,
+            autoSignInAfterVerification: false,
+            sendVerificationEmail: async ({
+              user,
+              url,
+              token,
+            }: {
+              user: { email: string };
+              url: string;
+              token: string;
+            }) => {
+              await email.send(
+                user.email,
+                "Verify your Radar email",
+                `Verify your email to receive new findings:\n${url}`,
+                await emailKey("verify", token),
+              );
+            },
+          },
+        }
+      : {}),
     disabledPaths: ["/sign-in/email"],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {

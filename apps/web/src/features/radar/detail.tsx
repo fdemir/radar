@@ -95,7 +95,11 @@ export default function Detail() {
             <button
               className="button primary"
               disabled={
-                pending || task.status !== "active" || Boolean(running) || cooldown > 0 || state.checks >= 30
+                pending ||
+                task.status !== "active" ||
+                Boolean(running) ||
+                cooldown > 0 ||
+                state.checks >= 30
               }
               onClick={() => run(task.id)}
             >
@@ -153,7 +157,6 @@ export default function Detail() {
             </button>
           ))}
         </div>
-
       </div>
       {tab === "Findings" ? (
         <>

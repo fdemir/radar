@@ -1,14 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import {
-  ArrowUpRight,
-  Bookmark,
-  Code2,
-  Compass,
-  Music2,
-  Plane,
-  Radar,
-  X,
-} from "lucide-react";
+import { ArrowUpRight, Bookmark, Code2, Compass, Music2, Plane, Radar, X } from "lucide-react";
 import { Link } from "react-router";
 import { formatDate, type Category, type Finding, type Task } from "./model";
 import { useWorkspace } from "./context";

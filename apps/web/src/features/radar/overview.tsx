@@ -84,7 +84,12 @@ export default function Overview() {
                 <div className="task-footer">
                   <span>
                     {latest ? `Last check: ${formatDate(latest.started)}` : "Not checked yet"}
-                    {task.status === "active" && task.nextRunAt && <><br />Next: {formatDate(task.nextRunAt, state.preferences.timezone)}</>}
+                    {task.status === "active" && task.nextRunAt && (
+                      <>
+                        <br />
+                        Next: {formatDate(task.nextRunAt, state.preferences.timezone)}
+                      </>
+                    )}
                   </span>
                   <div className="row">
                     {task.status !== "draft" && (

@@ -1,6 +1,23 @@
-export type { Task, Finding, Run, Notice, Preferences, Workspace, Frequency, Category, Message, Outcome } from "@radar/core";
+export type {
+  Task,
+  Finding,
+  Run,
+  Notice,
+  Preferences,
+  Workspace,
+  Frequency,
+  Category,
+  Message,
+  Outcome,
+} from "@radar/core";
 export { frequencies } from "@radar/core";
-export const stages = ["Queued", "Searching", "Reading sources", "Comparing results", "Preparing findings"];
+export const stages = [
+  "Queued",
+  "Searching",
+  "Reading sources",
+  "Comparing results",
+  "Preparing findings",
+];
 export const examples = [
   "Find new open-source AI tools I can run locally. Check every day.",
   "Find live jazz shows in Istanbul this weekend.",

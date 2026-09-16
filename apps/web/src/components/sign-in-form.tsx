@@ -136,7 +136,9 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       </form>
 
       <div className="mt-4 text-center">
-        <Link className="text-button" to="/forgot-password">Forgot password?</Link>
+        <Link className="text-button" to="/forgot-password">
+          Forgot password?
+        </Link>
         <Button variant="link" onClick={onSwitchToSignUp} className="">
           Need an account? Sign Up
         </Button>

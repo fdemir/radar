@@ -6,13 +6,7 @@ import { taskInputSchema } from "@radar/core";
 import { api } from "./api";
 import { useWorkspace } from "./context";
 import { Empty, PageTitle, Toggle } from "./components";
-import {
-  examples,
-  frequencies,
-  type Category,
-  type Frequency,
-  type Task,
-} from "./model";
+import { examples, frequencies, type Category, type Frequency, type Task } from "./model";
 
 export default function Editor() {
   const { state, save, pending } = useWorkspace();
@@ -26,13 +20,17 @@ export default function Editor() {
       ? structuredClone(existing)
       : {
           id: crypto.randomUUID(),
-          title: "", category: "Other", frequency: "Daily", revision: 0,
+          title: "",
+          category: "Other",
+          frequency: "Daily",
+          revision: 0,
           brief: "",
           status: "draft",
           time: "09:00",
           language: /türkçe|turkish/i.test(prompt) ? "Türkçe" : state.preferences.language,
           email: state.preferences.emailEnabled,
-          failures: 0, nextRunAt: null,
+          failures: 0,
+          nextRunAt: null,
           messages: [],
         },
   );
@@ -47,11 +45,19 @@ export default function Editor() {
     if (!content || thinking) return;
     setThinking(true);
     try {
-      const result = taskInputSchema.parse(await api("/tasks/compose", "POST", { task: taskInputSchema.parse({ ...task, status: "draft" }), message: content }));
+      const result = taskInputSchema.parse(
+        await api("/tasks/compose", "POST", {
+          task: taskInputSchema.parse({ ...task, status: "draft" }),
+          message: content,
+        }),
+      );
       setTask((current) => ({ ...current, ...result, status: current.status }));
       setInput("");
-    } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to update the brief."); }
-    finally { setThinking(false); }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update the brief.");
+    } finally {
+      setThinking(false);
+    }
   }
   const ready =
     task.title.trim().length > 0 &&
@@ -171,7 +177,7 @@ export default function Editor() {
               Interest
               <select
                 disabled={thinking || pending}
-              value={task.category}
+                value={task.category}
                 onChange={(e) => setTask((t) => ({ ...t, category: e.target.value as Category }))}
               >
                 {["Technology", "Events", "Travel", "Other"].map((c) => (
@@ -183,7 +189,7 @@ export default function Editor() {
               Results in
               <select
                 disabled={thinking || pending}
-              value={task.language}
+                value={task.language}
                 onChange={(e) =>
                   setTask((t) => ({ ...t, language: e.target.value as Task["language"] }))
                 }
@@ -198,7 +204,7 @@ export default function Editor() {
               Frequency
               <select
                 disabled={thinking || pending}
-              value={task.frequency}
+                value={task.frequency}
                 onChange={(e) => setTask((t) => ({ ...t, frequency: e.target.value as Frequency }))}
               >
                 {frequencies.map((f) => (
@@ -239,7 +245,11 @@ export default function Editor() {
             {existing ? <Check size={17} /> : <ArrowUpRight size={17} />}
             {existing ? "Save & run" : "Activate & run"}
           </button>
-          <button className="text-button full" disabled={thinking || pending} onClick={() => submit(false)}>
+          <button
+            className="text-button full"
+            disabled={thinking || pending}
+            onClick={() => submit(false)}
+          >
             Save draft
           </button>
         </section>

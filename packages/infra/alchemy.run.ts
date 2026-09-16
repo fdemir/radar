@@ -9,7 +9,6 @@ export const db = Cloudflare.D1.Database("database", {
   migrations: "../../packages/db/src/migrations",
 });
 
-
 export const researchQueue = Cloudflare.Queues.Queue("research-queue");
 const services = {
   OPENAI_API_KEY: Config.redacted("OPENAI_API_KEY"),
@@ -23,7 +22,12 @@ export const researchWorker = Cloudflare.Worker("research", {
   main: "../../apps/worker/src/index.ts",
   compatibility: { flags: ["nodejs_compat"] },
   crons: ["* * * * *"],
-  env: { DB: db, RESEARCH_QUEUE: researchQueue, CORS_ORIGIN: Config.string("CORS_ORIGIN"), ...services },
+  env: {
+    DB: db,
+    RESEARCH_QUEUE: researchQueue,
+    CORS_ORIGIN: Config.string("CORS_ORIGIN"),
+    ...services,
+  },
   dev: { port: 3001 },
 });
 
@@ -58,7 +62,8 @@ export default Alchemy.Stack(
     const worker = yield* researchWorker;
     const queue = yield* researchQueue;
     yield* Cloudflare.Queues.Consumer("research-consumer", {
-      queueId: queue.queueId, scriptName: worker.workerName,
+      queueId: queue.queueId,
+      scriptName: worker.workerName,
       settings: { batchSize: 1, maxConcurrency: 2, maxRetries: 2, maxWaitTimeMs: 1000 },
     });
     const webWorker = yield* Cloudflare.Website.Vite("web", {

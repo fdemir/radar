@@ -9,8 +9,7 @@ export function meta() {
     { title: "Radar | Web monitoring" },
     {
       name: "description",
-      content:
-        "Scheduled web research with source-backed findings and email notifications.",
+      content: "Scheduled web research with source-backed findings and email notifications.",
     },
   ];
 }

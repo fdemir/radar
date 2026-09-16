@@ -20,30 +20,51 @@ try {
 }
 const workerPath = resolve(cache, "worker.mjs");
 const port = Number(process.env.PORT || 3000);
-const localEnv = parseEnv(await readFile(resolve(root, "apps/server/.env"), "utf8").catch(() => ""));
+const localEnv = parseEnv(
+  await readFile(resolve(root, "apps/server/.env"), "utf8").catch(() => ""),
+);
 const bindings = {
-  BETTER_AUTH_SECRET: secret, BETTER_AUTH_URL: `http://localhost:${port}`,
+  BETTER_AUTH_SECRET: secret,
+  BETTER_AUTH_URL: `http://localhost:${port}`,
   CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:5174",
-  OPENAI_API_KEY: localEnv.OPENAI_API_KEY || "", OPENAI_BASE_URL: localEnv.OPENAI_BASE_URL || "https://api.openai.com/v1",
-  OPENAI_MODEL: localEnv.OPENAI_MODEL || "gpt-5.6-luna", TINYFISH_API_KEY: localEnv.TINYFISH_API_KEY || "",
-  RESEND_API_KEY: localEnv.RESEND_API_KEY || "", EMAIL_FROM: localEnv.EMAIL_FROM || "",
+  OPENAI_API_KEY: localEnv.OPENAI_API_KEY || "",
+  OPENAI_BASE_URL: localEnv.OPENAI_BASE_URL || "https://api.openai.com/v1",
+  OPENAI_MODEL: localEnv.OPENAI_MODEL || "gpt-5.6-luna",
+  TINYFISH_API_KEY: localEnv.TINYFISH_API_KEY || "",
+  RESEND_API_KEY: localEnv.RESEND_API_KEY || "",
+  EMAIL_FROM: localEnv.EMAIL_FROM || "",
 };
 const shared = {
-  modulesRoot: root, compatibilityDate: "2026-07-01", compatibilityFlags: ["nodejs_compat"],
-  d1Databases: ["DB"], queueProducers: { RESEARCH_QUEUE: "research" }, bindings,
+  modulesRoot: root,
+  compatibilityDate: "2026-07-01",
+  compatibilityFlags: ["nodejs_compat"],
+  d1Databases: ["DB"],
+  queueProducers: { RESEARCH_QUEUE: "research" },
+  bindings,
 };
 const options = {
-  host: "127.0.0.1", port, unsafeTriggerHandlers: true,
-  d1Persist: resolve(cache, "d1"), queuePersist: resolve(cache, "queues"),
+  host: "127.0.0.1",
+  port,
+  unsafeTriggerHandlers: true,
+  d1Persist: resolve(cache, "d1"),
+  queuePersist: resolve(cache, "queues"),
   workers: [
     { ...shared, name: "api", modules: [{ type: "ESModule", path: workerPath }] },
-    { ...shared, name: "research", modules: [{ type: "ESModule", path: resolve(cache, "research.mjs") }],
-      routes: ["research.local/*"], queueConsumers: { research: { maxBatchSize: 1, maxBatchTimeout: 1, maxRetries: 2 } } },
+    {
+      ...shared,
+      name: "research",
+      modules: [{ type: "ESModule", path: resolve(cache, "research.mjs") }],
+      routes: ["research.local/*"],
+      queueConsumers: { research: { maxBatchSize: 1, maxBatchTimeout: 1, maxRetries: 2 } },
+    },
   ],
 };
 let runtime;
 const build = await context({
-  entryPoints: { worker: resolve(root, "apps/server/src/index.ts"), research: resolve(root, "apps/worker/src/index.ts") },
+  entryPoints: {
+    worker: resolve(root, "apps/server/src/index.ts"),
+    research: resolve(root, "apps/worker/src/index.ts"),
+  },
   bundle: true,
   format: "esm",
   platform: "browser",
@@ -94,8 +115,11 @@ const schedule = setInterval(async () => {
   try {
     const response = await runtime.dispatchFetch("http://research.local/cdn-cgi/handler/scheduled");
     if (!response.ok) console.error("Local scheduler failed:", response.status);
-  } catch { console.error("Local scheduler is unavailable."); }
-  finally { ticking = false; }
+  } catch {
+    console.error("Local scheduler is unavailable.");
+  } finally {
+    ticking = false;
+  }
 }, 60_000);
 let stopping = false;
 async function stop() {

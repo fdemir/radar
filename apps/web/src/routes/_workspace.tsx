@@ -33,7 +33,10 @@ export async function clientLoader({ request }: { request: Request }) {
   if (response.status === 401) throw redirect(signInPath(new URL(request.url).searchParams));
   if (!response.ok) throw new Error("Unable to load your account. Please try again.");
   const account = currentUser.parse(await response.json());
-  const workspace = await fetch(`${ENV.VITE_SERVER_URL}/api/workspace`, { credentials: "include", cache: "no-store" });
+  const workspace = await fetch(`${ENV.VITE_SERVER_URL}/api/workspace`, {
+    credentials: "include",
+    cache: "no-store",
+  });
   if (!workspace.ok) throw new Error("Unable to load your workspace.");
   return { ...account, workspace: workspaceSchema.parse(await workspace.json()) };
 }
