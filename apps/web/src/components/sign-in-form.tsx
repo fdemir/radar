@@ -2,6 +2,7 @@ import { Button } from "@radar/ui/components/button";
 import { Input } from "@radar/ui/components/input";
 import { Label } from "@radar/ui/components/label";
 import { useForm } from "@tanstack/react-form";
+import { Link } from "react-router";
 import { useState } from "react";
 import z from "zod";
 
@@ -135,6 +136,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       </form>
 
       <div className="mt-4 text-center">
+        <Link className="text-button" to="/forgot-password">Forgot password?</Link>
         <Button variant="link" onClick={onSwitchToSignUp} className="">
           Need an account? Sign Up
         </Button>

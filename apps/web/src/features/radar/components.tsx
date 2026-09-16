@@ -2,8 +2,6 @@ import { useEffect, useRef, type ReactNode } from "react";
 import {
   ArrowUpRight,
   Bookmark,
-  Check,
-  CircleHelp,
   Code2,
   Compass,
   Music2,
@@ -197,37 +195,7 @@ export function FindingModal({ item, close }: { item: Finding; close: () => void
           {current.saved ? "Saved" : "Save"}
         </button>
       </div>
-      <p className="caption">Sample finding · {formatDate(item.date)}</p>
+      <p className="caption">{formatDate(item.date)}</p>
     </Modal>
-  );
-}
-export function SampleNotice({ close, reset }: { close: () => void; reset: () => void }) {
-  return (
-    <Modal title="Sample workspace" close={close}>
-      <p>Research, email and Discord are simulated. Changes are saved in this browser.</p>
-      <div className="modal-actions">
-        <button
-          className="button secondary"
-          onClick={() => {
-            reset();
-            close();
-          }}
-        >
-          Reset sample data
-        </button>
-        <button className="button primary" onClick={close}>
-          <Check size={16} />
-          Done
-        </button>
-      </div>
-    </Modal>
-  );
-}
-export function SampleButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button className="sample-button" onClick={onClick}>
-      <CircleHelp size={14} />
-      Sample data
-    </button>
   );
 }

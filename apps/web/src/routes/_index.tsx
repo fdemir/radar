@@ -6,11 +6,11 @@ import { CategoryIcon, Modal } from "@/features/radar/components";
 import { examples, samples } from "@/features/radar/model";
 export function meta() {
   return [
-    { title: "Radar — Web monitoring" },
+    { title: "Radar | Web monitoring" },
     {
       name: "description",
       content:
-        "Scheduled web research with source-backed findings and email or Discord notifications.",
+        "Scheduled web research with source-backed findings and email notifications.",
     },
   ];
 }
@@ -29,7 +29,7 @@ export default function Home() {
             <br />
             Get updates.
           </h1>
-          <p>Source-backed findings, delivered to email or Discord.</p>
+          <p>Source-backed findings, delivered to email.</p>
           <form
             className="hero-composer"
             onSubmit={(e) => {

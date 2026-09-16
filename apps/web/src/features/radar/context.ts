@@ -1,16 +1,16 @@
 import { createContext, useContext } from "react";
-import type { Finding, Outcome, Preferences, Task, Workspace } from "./model";
+import type { Finding, PreferencesInput, Task, Workspace } from "@radar/core";
 export type WorkspaceStore = {
   state: Workspace;
-  save: (task: Task) => boolean;
-  run: (id: string, outcome?: Outcome) => boolean;
-  toggle: (id: string) => void;
-  remove: (id: string) => void;
-  finding: (id: string, patch: Partial<Pick<Finding, "read" | "saved">>) => void;
-  preferences: (patch: Partial<Preferences>) => void;
-  readNotices: (id?: string) => void;
-  readFindings: () => void;
-  reset: () => void;
+  pending: boolean;
+  save: (task: Task) => Promise<string | null>;
+  run: (id: string) => Promise<boolean>;
+  toggle: (id: string) => Promise<void>;
+  remove: (id: string) => Promise<boolean>;
+  finding: (id: string, patch: Partial<Pick<Finding, "read" | "saved">>) => Promise<boolean>;
+  preferences: (patch: PreferencesInput) => Promise<boolean>;
+  readNotices: (id?: string) => Promise<boolean>;
+  readFindings: () => Promise<boolean>;
 };
 export const WorkspaceContext = createContext<WorkspaceStore | null>(null);
 export function useWorkspace() {

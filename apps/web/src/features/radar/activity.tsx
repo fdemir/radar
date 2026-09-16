@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { ArrowUpRight, CheckCheck, Mail, MessageCircle } from "lucide-react";
+import { ArrowUpRight, CheckCheck, Mail } from "lucide-react";
 import { Link } from "react-router";
 import { useWorkspace } from "./context";
 import { Empty, Modal, PageTitle } from "./components";
 import { formatDate, type Notice } from "./model";
 export default function Activity() {
   const { state, readNotices } = useWorkspace();
-  const [filter, setFilter] = useState("All");
   const [selected, setSelected] = useState<Notice | null>(null);
-  const notices = state.notices.filter((n) => filter === "All" || n.channel === filter);
+  const notices = state.notices;
   const finding = state.findings.find((f) => f.id === selected?.findingId);
   return (
     <main className="container workspace-main">
@@ -21,18 +20,6 @@ export default function Activity() {
           </button>
         }
       />
-      <div className="tabs compact-tabs">
-        {["All", "Email", "Discord"].map((f) => (
-          <button
-            key={f}
-            className={filter === f ? "selected" : ""}
-            aria-pressed={filter === f}
-            onClick={() => setFilter(f)}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
       <div className="card notification-list">
         {notices.map((n) => (
           <button
@@ -44,7 +31,7 @@ export default function Activity() {
             }}
           >
             <span className="channel-icon">
-              {n.channel === "Email" ? <Mail size={21} /> : <MessageCircle size={21} />}
+              <Mail size={21} />
             </span>
             <span>
               <strong>
@@ -74,7 +61,6 @@ export default function Activity() {
           <Link className="button primary" to={`/tasks/${selected.taskId}`}>
             View task <ArrowUpRight size={16} />
           </Link>
-          <p className="caption">Sample message. Not sent.</p>
         </Modal>
       )}
     </main>

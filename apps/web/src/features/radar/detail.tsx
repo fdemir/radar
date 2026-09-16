@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
   Check,
@@ -13,15 +13,14 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useWorkspace } from "./context";
 import { Empty, FindingCard, FindingModal, Modal, PageTitle, Status } from "./components";
-import { formatDate, stages, type Finding, type Outcome } from "./model";
+import { formatDate, stages, type Finding } from "./model";
 
 export default function Detail() {
-  const { state, run, toggle, remove } = useWorkspace();
+  const { state, run, toggle, remove, pending } = useWorkspace();
   const { taskId } = useParams();
-  const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const task = state.tasks.find((t) => t.id === taskId);
   const runs = state.runs.filter((r) => r.taskId === taskId);
@@ -30,20 +29,11 @@ export default function Detail() {
   const [tab, setTab] = useState("Findings");
   const [selected, setSelected] = useState<Finding | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome>("new");
   const [now, setNow] = useState(Date.now);
-  const started = useRef(false);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
-  useEffect(() => {
-    if (task && params.get("run") === "1" && !started.current) {
-      started.current = true;
-      run(task.id);
-      setParams({}, { replace: true });
-    }
-  }, [task, params, run, setParams]);
   const cooldown = runs[0] ? Math.max(0, Math.ceil((runs[0].started + 10000 - now) / 1000)) : 0;
   if (!task)
     return (
@@ -93,10 +83,7 @@ export default function Detail() {
         <div className="row between">
           <span className="caption">
             <Mail size={15} />
-            {[task.email ? "Email" : "", task.discord ? "Discord" : ""]
-              .filter(Boolean)
-              .join(" + ") || "In-app only"}{" "}
-            · {task.language}
+            {task.email ? "Email" : "In-app only"} · {task.language}
           </span>
           <div className="row">
             {task.status !== "draft" && (
@@ -108,9 +95,9 @@ export default function Detail() {
             <button
               className="button primary"
               disabled={
-                task.status !== "active" || Boolean(running) || cooldown > 0 || state.checks >= 30
+                pending || task.status !== "active" || Boolean(running) || cooldown > 0 || state.checks >= 30
               }
-              onClick={() => run(task.id, outcome)}
+              onClick={() => run(task.id)}
             >
               {running ? <LoaderCircle className="spin" size={16} /> : <Play size={16} />}
               {running
@@ -166,20 +153,7 @@ export default function Detail() {
             </button>
           ))}
         </div>
-        <details className="outcome-control">
-          <summary>
-            Sample outcome <ChevronDown size={14} />
-          </summary>
-          <select
-            aria-label="Sample outcome"
-            value={outcome}
-            onChange={(e) => setOutcome(e.target.value as Outcome)}
-          >
-            <option value="new">New finding</option>
-            <option value="unchanged">No new matches</option>
-            <option value="error">Source unavailable</option>
-          </select>
-        </details>
+
       </div>
       {tab === "Findings" ? (
         <>
@@ -215,7 +189,7 @@ export default function Detail() {
                       ? "In progress"
                       : r.status === "cancelled"
                         ? "Cancelled"
-                        : "5 sec"}{" "}
+                        : `${Math.max(0, Math.round(((r.finished ?? r.started) - r.started) / 1000))} sec`}{" "}
                     · {r.sources.length} sources
                   </small>
                 </span>
@@ -259,9 +233,9 @@ export default function Detail() {
             </button>
             <button
               className="button primary"
-              onClick={() => {
-                remove(task.id);
-                navigate("/tasks");
+              disabled={pending}
+              onClick={async () => {
+                if (await remove(task.id)) navigate("/tasks");
               }}
             >
               Delete task
