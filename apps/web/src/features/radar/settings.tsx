@@ -6,20 +6,25 @@ import { authClient } from "@/lib/auth-client";
 import { useWorkspace } from "./context";
 import { PageTitle, Toggle } from "./components";
 import type { Preferences, PreferencesInput } from "@radar/core";
+
 export default function Settings() {
   const { state, preferences, pending } = useWorkspace();
   const prefs = state.preferences;
   const [verifying, setVerifying] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const navigate = useNavigate();
+
   async function verify() {
     setVerifying(true);
+
     try {
       const { error } = await authClient.sendVerificationEmail({
         email: prefs.email,
         callbackURL: `${window.location.origin}/settings`,
       });
+
       if (error) throw new Error(error.message || "Unable to send verification email.");
+
       toast("Check your email for the verification link.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to send email.");
@@ -27,17 +32,22 @@ export default function Settings() {
       setVerifying(false);
     }
   }
+
   async function logout() {
     setSigningOut(true);
+
     try {
       const { error } = await authClient.signOut();
+
       if (error) throw error;
+
       navigate("/login", { replace: true });
     } catch {
       toast.error("Unable to sign out. Try again.");
       setSigningOut(false);
     }
   }
+
   return (
     <main className="container workspace-main">
       <PageTitle title="Settings" />
@@ -95,6 +105,7 @@ export default function Settings() {
     </main>
   );
 }
+
 function AccountForm({
   prefs,
   preferences,
@@ -111,12 +122,14 @@ function AccountForm({
   emailAvailable: boolean;
 }) {
   const [form, setForm] = useState(prefs);
+
   return (
     <section className="card settings-card">
       <h2>Account</h2>
       <form
         onSubmit={async (event) => {
           event.preventDefault();
+
           if (
             await preferences({
               name: form.name.trim(),

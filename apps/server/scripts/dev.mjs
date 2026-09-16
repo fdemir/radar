@@ -8,16 +8,20 @@ import { Miniflare } from "miniflare";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const cache = resolve(root, ".cache/local");
+
 await mkdir(cache, { recursive: true });
 const secretPath = resolve(cache, "auth-secret");
 let secret;
+
 try {
   secret = await readFile(secretPath, "utf8");
 } catch (error) {
   if (error.code !== "ENOENT") throw error;
+
   secret = randomBytes(32).toString("hex");
   await writeFile(secretPath, secret, { mode: 0o600 });
 }
+
 const workerPath = resolve(cache, "worker.mjs");
 const port = Number(process.env.PORT || 3000);
 const localEnv = parseEnv(
@@ -83,16 +87,22 @@ const build = await context({
     },
   ],
 });
+
 await build.rebuild();
 runtime = new Miniflare(options);
+
 try {
   const db = await runtime.getD1Database("DB", "api");
+
   await db.prepare("CREATE TABLE IF NOT EXISTS _radar_migrations (name TEXT PRIMARY KEY)").run();
   const directory = resolve(root, "packages/db/src/migrations");
+
   for (const file of (await readdir(directory)).filter((name) => name.endsWith(".sql")).sort()) {
     if (await db.prepare("SELECT name FROM _radar_migrations WHERE name = ?").bind(file).first())
       continue;
+
     const sql = await readFile(resolve(directory, file), "utf8");
+
     await db.batch([
       ...sql
         .split("--> statement-breakpoint")
@@ -101,6 +111,7 @@ try {
       db.prepare("INSERT INTO _radar_migrations (name) VALUES (?)").bind(file),
     ]);
   }
+
   await build.watch();
   console.log(`Radar local API: http://localhost:${port}`);
 } catch (error) {
@@ -108,12 +119,16 @@ try {
   await build.dispose();
   throw error;
 }
+
 let ticking = false;
 const schedule = setInterval(async () => {
   if (ticking) return;
+
   ticking = true;
+
   try {
     const response = await runtime.dispatchFetch("http://research.local/cdn-cgi/handler/scheduled");
+
     if (!response.ok) console.error("Local scheduler failed:", response.status);
   } catch {
     console.error("Local scheduler is unavailable.");
@@ -122,13 +137,16 @@ const schedule = setInterval(async () => {
   }
 }, 60_000);
 let stopping = false;
+
 async function stop() {
   if (stopping) return;
+
   stopping = true;
   clearInterval(schedule);
   await build.dispose();
   await runtime.dispose();
   process.exit(0);
 }
+
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

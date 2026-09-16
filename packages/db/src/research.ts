@@ -10,11 +10,13 @@ import { createWorkspace, WorkspaceError } from "./workspace";
 export function createResearch(db: Database) {
   const raw = db.$client;
   const workspace = createWorkspace(db);
+
   async function start(userId: string, taskId: string, now = Date.now()) {
     const current = await workspace.getTask(userId, taskId);
     const settings = await db.select().from(preference).where(eq(preference.userId, userId)).get();
     const id = crypto.randomUUID();
     const next = nextRunAt(current.frequency, current.time, settings?.timezone ?? "UTC", now);
+
     try {
       await raw.batch([
         raw
@@ -30,17 +32,24 @@ export function createResearch(db: Database) {
       ]);
     } catch (error) {
       const detail = error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : "";
+
       if (/daily_run_limit/.test(detail))
         throw new WorkspaceError("Daily limit reached: 30 checks.");
+
       if (/run_cooldown/.test(detail)) throw new WorkspaceError("Wait 10 seconds between checks.");
+
       if (/task_not_active|task_changed/.test(detail))
         throw new WorkspaceError("Task changed. Reload and try again.");
+
       if (/UNIQUE constraint failed: run.task_id/.test(detail))
         throw new WorkspaceError("This task is already running.");
+
       throw error;
     }
+
     return id;
   }
+
   async function claim(id: string) {
     const lease = crypto.randomUUID();
     const claimed = await db
@@ -48,7 +57,9 @@ export function createResearch(db: Database) {
       .set({ stage: 1, lease, summary: "Searching" })
       .where(and(eq(run.id, id), eq(run.status, "running"), eq(run.stage, 0)))
       .returning();
+
     if (!claimed[0]) return null;
+
     const row = claimed[0];
     const current = await workspace.getTask(row.userId, row.taskId);
     const previous = await db
@@ -57,16 +68,20 @@ export function createResearch(db: Database) {
       .where(eq(finding.taskId, row.taskId))
       .orderBy(desc(finding.date))
       .limit(200);
+
     return { run: row, task: current, previous, lease };
   }
+
   async function progress(id: string, lease: string, stage: number, sources: string[] = []) {
     const changed = await db
       .update(run)
       .set({ stage, sources })
       .where(and(eq(run.id, id), eq(run.lease, lease), eq(run.status, "running")))
       .returning({ id: run.id });
+
     return changed.length > 0;
   }
+
   async function complete(id: string, lease: string, result: ResearchResult, now = Date.now()) {
     const date = new Date(now).toISOString();
     const inserts = result.findings.map((item) =>
@@ -92,6 +107,7 @@ export function createResearch(db: Database) {
           lease,
         ),
     );
+
     await raw.batch([
       raw
         .prepare(
@@ -119,16 +135,19 @@ export function createResearch(db: Database) {
         .bind(crypto.randomUUID(), now, id, lease),
     ]);
   }
+
   async function fail(id: string, lease: string | null, summary: string, now = Date.now()) {
     const query =
       lease === null
         ? and(eq(run.id, id), eq(run.status, "running"))
         : and(eq(run.id, id), eq(run.lease, lease), eq(run.status, "running"));
+
     await db
       .update(run)
       .set({ status: "failed", outcome: "error", summary, finished: now })
       .where(query);
   }
+
   return {
     start,
     claim,
@@ -140,6 +159,7 @@ export function createResearch(db: Database) {
         .prepare("SELECT checks FROM usage WHERE user_id = ? AND day = ?")
         .bind(userId, dayKey("UTC", now))
         .first<{ checks: number }>();
+
       return row?.checks ?? 0;
     },
     async due(now = Date.now()) {

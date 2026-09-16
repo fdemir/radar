@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { authClient } from "@/lib/auth-client";
+
 export default function ResetPassword() {
   const [params] = useSearchParams();
   const token = params.get("token");
@@ -8,6 +9,7 @@ export default function ResetPassword() {
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
   return (
     <main className="auth-page">
       <div className="auth-sky sky" />
@@ -25,15 +27,21 @@ export default function ResetPassword() {
             onSubmit={async (event) => {
               event.preventDefault();
               setError("");
+
               if (password !== confirmation) {
                 setError("Passwords do not match.");
+
                 return;
               }
+
               setBusy(true);
+
               try {
                 const result = await authClient.resetPassword({ token, newPassword: password });
+
                 if (result.error)
                   throw new Error(result.error.message || "Unable to reset password.");
+
                 window.location.assign("/login");
               } catch (error) {
                 setError(error instanceof Error ? error.message : "Unable to reset password.");

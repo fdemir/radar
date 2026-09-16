@@ -13,6 +13,7 @@ export default function Login() {
   const { data: session, isPending, error, refetch } = authClient.useSession();
 
   if (isPending) return <Loader />;
+
   if (error)
     return (
       <div className="mx-auto max-w-md p-6" role="alert">
@@ -22,6 +23,7 @@ export default function Login() {
         </button>
       </div>
     );
+
   if (session)
     return (
       <Navigate

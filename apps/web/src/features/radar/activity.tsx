@@ -4,11 +4,13 @@ import { Link } from "react-router";
 import { useWorkspace } from "./context";
 import { Empty, Modal, PageTitle } from "./components";
 import { formatDate, type Notice } from "./model";
+
 export default function Activity() {
   const { state, readNotices } = useWorkspace();
   const [selected, setSelected] = useState<Notice | null>(null);
   const notices = state.notices;
   const finding = state.findings.find((f) => f.id === selected?.findingId);
+
   return (
     <main className="container workspace-main">
       <PageTitle

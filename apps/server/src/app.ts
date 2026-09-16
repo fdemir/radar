@@ -33,12 +33,15 @@ export function createApp(
         503,
       );
     }
+
     return auth.handler(c.req.raw);
   });
   app.get("/api/me", async (c) => {
     c.header("Cache-Control", "no-store");
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
+
     if (!session) return c.json({ error: "Authentication required" }, 401);
+
     return c.json({
       user: {
         id: session.user.id,

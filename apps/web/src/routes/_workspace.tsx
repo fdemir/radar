@@ -23,23 +23,31 @@ const currentUser = z.object({
 
 function signInPath(search: URLSearchParams) {
   const prompt = search.get("prompt");
+
   return prompt ? `/login?prompt=${encodeURIComponent(prompt)}` : "/login";
 }
+
 export async function clientLoader({ request }: { request: Request }) {
   const response = await fetch(`${ENV.VITE_SERVER_URL}/api/me`, {
     credentials: "include",
     cache: "no-store",
   });
+
   if (response.status === 401) throw redirect(signInPath(new URL(request.url).searchParams));
+
   if (!response.ok) throw new Error("Unable to load your account. Please try again.");
+
   const account = currentUser.parse(await response.json());
   const workspace = await fetch(`${ENV.VITE_SERVER_URL}/api/workspace`, {
     credentials: "include",
     cache: "no-store",
   });
+
   if (!workspace.ok) throw new Error("Unable to load your workspace.");
+
   return { ...account, workspace: workspaceSchema.parse(await workspace.json()) };
 }
+
 clientLoader.hydrate = true as const;
 
 export function HydrateFallback() {
@@ -52,6 +60,7 @@ export default function Tasks() {
   const { data: session, isPending, error, refetch } = authClient.useSession();
 
   if (isPending) return <Loader />;
+
   if (error)
     return (
       <div className="mx-auto max-w-md p-6" role="alert">
@@ -61,7 +70,9 @@ export default function Tasks() {
         </button>
       </div>
     );
+
   if (!session) return <Navigate to={signInPath(params)} replace />;
+
   // A different tab may have switched accounts since this route was loaded.
   if (session.user.id !== user.id) return <Navigate to={signInPath(params)} replace />;
 
@@ -74,6 +85,7 @@ export default function Tasks() {
 
 export function ErrorBoundary() {
   const revalidator = useRevalidator();
+
   return (
     <main className="mx-auto w-full max-w-md p-6" role="alert">
       <h1 className="text-xl font-semibold">Unable to load workspace</h1>
@@ -87,6 +99,7 @@ export function ErrorBoundary() {
 
 function WorkspaceLayout() {
   const { state } = useWorkspace();
+
   return (
     <>
       <Header unread={state.notices.filter((n) => !n.read).length} />

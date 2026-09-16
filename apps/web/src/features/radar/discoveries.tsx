@@ -16,6 +16,7 @@ export default function Discoveries() {
       (task === "all" || f.taskId === task) &&
       `${f.title} ${f.summary} ${f.source}`.toLowerCase().includes(query.toLowerCase()),
   );
+
   return (
     <main className="container workspace-main">
       <PageTitle

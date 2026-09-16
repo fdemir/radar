@@ -10,9 +10,12 @@ type WorkerEnv = AgentConfig &
 
 async function deliver(env: WorkerEnv) {
   const email = createEmail(env);
+
   if (!email.available) return;
+
   const db = env.DB;
   const now = Date.now();
+
   // A crashed sender can be retried with the same provider idempotency key.
   await db
     .prepare("UPDATE delivery SET status = 'pending' WHERE status = 'sending' AND next_attempt < ?")
@@ -27,6 +30,7 @@ async function deliver(env: WorkerEnv) {
     )
     .bind(now)
     .all<{ id: string; target: string; runId: string; taskId: string; title: string }>();
+
   for (const item of due.results) {
     const claimed = await db
       .prepare(
@@ -38,12 +42,15 @@ async function deliver(env: WorkerEnv) {
       )
       .bind(now, item.id)
       .first<{ attempts: number }>();
+
     if (!claimed) continue;
+
     try {
       const findings = await db
         .prepare("SELECT title, summary, url FROM finding WHERE run_id = ?")
         .bind(item.runId)
         .all<{ title: string; summary: string; url: string }>();
+
       if (!findings.results.length) {
         await db
           .prepare("UPDATE delivery SET status = 'cancelled' WHERE id = ? AND status = 'sending'")
@@ -51,6 +58,7 @@ async function deliver(env: WorkerEnv) {
           .run();
         continue;
       }
+
       const text =
         findings.results
           .map((finding) => `${finding.title}\n${finding.summary}\n${finding.url}`)
@@ -64,7 +72,9 @@ async function deliver(env: WorkerEnv) {
         )
         .bind(item.id)
         .first();
+
       if (!active) continue;
+
       await email.send(
         item.target,
         `${item.title}: ${findings.results.length} new findings`,
@@ -98,7 +108,9 @@ export default {
   },
   async scheduled(_controller: ScheduledController, env: WorkerEnv) {
     const research = createResearch(createDb(env));
+
     await research.expire();
+
     if (env.OPENAI_API_KEY && env.TINYFISH_API_KEY) {
       for (const task of (await research.due()).results) {
         try {
@@ -107,25 +119,31 @@ export default {
           if (!(error instanceof WorkspaceError)) throw error;
         }
       }
+
       // Repairs the gap between a committed run and queue publishing.
       for (const run of await research.queued()) await env.RESEARCH_QUEUE.send({ runId: run.id });
     }
+
     await deliver(env);
   },
   async queue(batch: MessageBatch<ResearchJob>, env: WorkerEnv) {
     const research = createResearch(createDb(env));
+
     for (const message of batch.messages) {
       const claimed = await research.claim(message.body.runId);
+
       if (!claimed) {
         message.ack();
         continue;
       }
+
       try {
         const result = await createAgent(env).research(
           claimed.task,
           claimed.previous,
           (stage, sources) => research.progress(claimed.run.id, claimed.lease, stage, sources),
         );
+
         await research.complete(claimed.run.id, claimed.lease, result);
       } catch (error) {
         if (!(error instanceof ResearchCancelled)) {
@@ -138,8 +156,10 @@ export default {
           );
         }
       }
+
       message.ack();
     }
+
     await deliver(env);
   },
 } satisfies ExportedHandler<WorkerEnv, ResearchJob>;

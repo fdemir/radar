@@ -30,11 +30,14 @@ export default function Detail() {
   const [selected, setSelected] = useState<Finding | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [now, setNow] = useState(Date.now);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
+
     return () => clearInterval(timer);
   }, []);
   const cooldown = runs[0] ? Math.max(0, Math.ceil((runs[0].started + 10000 - now) / 1000)) : 0;
+
   if (!task)
     return (
       <main className="container">
@@ -49,6 +52,7 @@ export default function Detail() {
         </Empty>
       </main>
     );
+
   return (
     <main className="container workspace-main">
       <PageTitle

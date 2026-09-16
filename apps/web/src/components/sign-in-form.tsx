@@ -18,17 +18,20 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
     },
     onSubmit: async ({ value }) => {
       setSubmitError(null);
+
       try {
         const { error } = await authClient.signIn.username({
           username: value.username.trim(),
           password: value.password,
         });
+
         if (error) {
           setSubmitError(
             error.status === 429
               ? "Too many attempts. Please wait a minute and try again."
               : error.message || "Unable to continue. Please try again.",
           );
+
           return;
         }
       } catch {

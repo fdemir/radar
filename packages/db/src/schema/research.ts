@@ -40,6 +40,7 @@ export const run = sqliteTable(
     index("run_task_idx").on(table.taskId, table.started),
   ],
 );
+
 export const finding = sqliteTable(
   "finding",
   {
@@ -66,6 +67,7 @@ export const finding = sqliteTable(
     index("finding_task_idx").on(table.taskId),
   ],
 );
+
 export const delivery = sqliteTable(
   "delivery",
   {
@@ -91,6 +93,7 @@ export const delivery = sqliteTable(
     index("delivery_due_idx").on(table.status, table.nextAttempt),
   ],
 );
+
 export const usage = sqliteTable(
   "usage",
   {

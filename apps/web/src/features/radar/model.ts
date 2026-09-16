@@ -10,7 +10,9 @@ export type {
   Message,
   Outcome,
 } from "@radar/core";
+
 export { frequencies } from "@radar/core";
+
 export const stages = [
   "Queued",
   "Searching",
@@ -18,11 +20,13 @@ export const stages = [
   "Comparing results",
   "Preparing findings",
 ];
+
 export const examples = [
   "Find new open-source AI tools I can run locally. Check every day.",
   "Find live jazz shows in Istanbul this weekend.",
   "Track direct return flights from Istanbul to Tokyo under €650.",
 ];
+
 export const samples = [
   {
     category: "Technology" as const,
@@ -85,6 +89,7 @@ export const samples = [
     trSummary: "Görev metnine göre hazırlanmış örnek bulgu. Canlı araştırma bağlı değil.",
   },
 ];
+
 export function formatDate(date: string | number, timezone?: string) {
   return new Intl.DateTimeFormat("en", {
     timeZone: timezone,

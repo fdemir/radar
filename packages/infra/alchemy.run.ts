@@ -18,6 +18,7 @@ const services = {
   RESEND_API_KEY: Config.redacted("RESEND_API_KEY").pipe(Config.withDefault(Redacted.make(""))),
   EMAIL_FROM: Config.string("EMAIL_FROM").pipe(Config.withDefault("")),
 };
+
 export const researchWorker = Cloudflare.Worker("research", {
   main: "../../apps/worker/src/index.ts",
   compatibility: { flags: ["nodejs_compat"] },
@@ -61,6 +62,7 @@ export default Alchemy.Stack(
     const serverWorker = yield* server;
     const worker = yield* researchWorker;
     const queue = yield* researchQueue;
+
     yield* Cloudflare.Queues.Consumer("research-consumer", {
       queueId: queue.queueId,
       scriptName: worker.workerName,

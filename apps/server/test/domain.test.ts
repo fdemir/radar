@@ -33,6 +33,7 @@ it("rejects private and non-web URLs and removes tracking without skipping adjac
     "https://example.com:8080",
   ])
     expect(publicUrl(url)).toBeNull();
+
   expect(publicUrl("https://hono.dev/docs?utm_source=a&utm_campaign=b&version=2#top")).toBe(
     "https://hono.dev/docs?version=2",
   );

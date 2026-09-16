@@ -31,6 +31,7 @@ const input: TaskInput = {
   messages: [],
   revision: 0,
 };
+
 function request(
   path: string,
   method = "GET",
@@ -44,6 +45,7 @@ function request(
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
+
 async function register(username: string) {
   const response = await request(
     "/api/auth/sign-up/email",
@@ -51,23 +53,32 @@ async function register(username: string) {
     { username, name: username, email: `${username}@example.com`, password: "test-password-123" },
     "",
   );
+
   expect(response.status).toBe(200);
+
   return response.headers
     .getSetCookie()
     .map((item) => item.split(";")[0])
     .join("; ");
 }
+
 async function create(value = input, cookie = alice) {
   const response = await request("/api/tasks", "POST", value, cookie);
+
   expect(response.status, await response.clone().text()).toBe(201);
+
   return z.object({ id: z.string() }).parse(await response.json()).id;
 }
+
 async function snapshot(cookie = alice) {
   const response = await request("/api/workspace", "GET", undefined, cookie);
+
   expect(response.status).toBe(200);
   expect(response.headers.get("Cache-Control")).toBe("no-store");
+
   return workspaceSchema.parse(await response.json());
 }
+
 beforeAll(async () => {
   runtime = new Miniflare({
     modules: true,
@@ -77,8 +88,10 @@ beforeAll(async () => {
   });
   d1 = await runtime.getD1Database("DB");
   const folder = new URL("../../../packages/db/src/migrations/", import.meta.url);
+
   for (const file of (await readdir(folder)).filter((file) => file.endsWith(".sql")).sort()) {
     const sql = await readFile(new URL(file, folder), "utf8");
+
     await d1.batch(
       sql
         .split("--> statement-breakpoint")
@@ -93,6 +106,7 @@ afterAll(async () => {
 beforeEach(async () => {
   await d1.batch(["user", "rate_limit"].map((table) => d1.prepare(`DELETE FROM ${table}`)));
   const db = createDb({ DB: d1 });
+
   app = createApp(createAuth(config, db), config.CORS_ORIGIN, db);
   alice = await register("alice");
   bob = await register("bob");
@@ -100,16 +114,19 @@ beforeEach(async () => {
 
 it("persists task edits and conversations across app instances, scoped to the session", async () => {
   const id = await create({ ...input, messages: [{ role: "user", text: "Only open source" }] });
+
   expect((await snapshot(bob)).tasks).toEqual([]);
   expect((await request(`/api/tasks/${id}`, "PUT", input, bob)).status).toBe(404);
   expect((await request(`/api/tasks/${id}`, "DELETE", undefined, bob)).status).toBe(404);
   const task = (await snapshot()).tasks[0]!;
+
   expect(task.messages[0]?.text).toBe("Only open source");
   expect((await request(`/api/tasks/${id}`, "PUT", { ...task, title: "Updated" })).status).toBe(
     200,
   );
   expect((await request(`/api/tasks/${id}`, "PUT", task)).status).toBe(409);
   const db = createDb({ DB: d1 });
+
   app = createApp(createAuth(config, db), config.CORS_ORIGIN, db);
   expect((await snapshot()).tasks[0]?.title).toBe("Updated");
   expect((await request(`/api/tasks/${id}`, "DELETE")).status).toBe(204);
@@ -120,13 +137,16 @@ it("enforces the active task limit during concurrent creates and resumes", async
   const responses = await Promise.all(
     Array.from({ length: 8 }, () => request("/api/tasks", "POST", { ...input, status: "active" })),
   );
+
   expect(responses.filter((response) => response.status === 201)).toHaveLength(5);
   expect(responses.filter((response) => response.status === 409)).toHaveLength(3);
   const draft = await create();
+
   expect((await request(`/api/tasks/${draft}`, "PUT", { ...input, status: "active" })).status).toBe(
     409,
   );
   const active = (await snapshot()).tasks.find((task) => task.status === "active")!;
+
   expect(
     (await request(`/api/tasks/${active.id}`, "PUT", { ...active, status: "paused" })).status,
   ).toBe(200);
@@ -142,6 +162,7 @@ it("validates requests and rejects unauthenticated and cross-origin writes", asy
   expect((await request("/api/tasks", "POST", input, alice, "https://other.example")).status).toBe(
     403,
   );
+
   for (const patch of [
     { frequency: "Every minute" },
     { time: "29:00" },
@@ -150,6 +171,7 @@ it("validates requests and rejects unauthenticated and cross-origin writes", asy
   ]) {
     expect((await request("/api/tasks", "POST", { ...input, ...patch })).status).toBe(400);
   }
+
   expect((await snapshot()).tasks).toEqual([]);
 });
 
@@ -172,6 +194,7 @@ it("saves preferences without letting the client verify or replace the account e
     verified: false,
   });
   expect((await snapshot(bob)).preferences.name).toBe("bob");
+
   for (const patch of [
     { verified: true },
     { email: "changed@example.com" },
@@ -184,8 +207,10 @@ it("saves preferences without letting the client verify or replace the account e
 async function researcher() {
   const response = await request("/api/me");
   const { user } = z.object({ user: z.object({ id: z.string() }) }).parse(await response.json());
+
   return { userId: user.id, research: createResearch(createDb({ DB: d1 })) };
 }
+
 const result = {
   summary: "A new tool release.",
   sources: ["https://example.com/release"],
@@ -200,19 +225,23 @@ const result = {
     },
   ],
 };
+
 it("claims a run once and saves findings and one email together, deduplicating later runs", async () => {
   const taskId = await create({ ...input, status: "active" });
   const { research, userId } = await researcher();
+
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
   const now = Date.now();
   const runId = await research.start(userId, taskId, now);
   const claims = await Promise.all([research.claim(runId), research.claim(runId)]);
+
   expect(claims.filter(Boolean)).toHaveLength(1);
   await research.complete(runId, claims.find(Boolean)!.lease, result, now + 1000);
   expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(1);
   expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(1);
   const second = await research.start(userId, taskId, now + 11_000);
   const claim = await research.claim(second);
+
   await research.complete(second, claim!.lease, result, now + 12_000);
   expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(1);
   expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(1);
@@ -221,6 +250,7 @@ it("claims a run once and saves findings and one email together, deduplicating l
   ).toBe("unchanged");
   const updated = await research.start(userId, taskId, now + 22_000);
   const updatedClaim = await research.claim(updated);
+
   await research.complete(
     updated,
     updatedClaim!.lease,
@@ -236,18 +266,22 @@ it("cancels old work after edits and pauses, and pauses a task after three failu
   const id = await research.start(userId, taskId, now);
   const claim = await research.claim(id);
   const task = (await snapshot()).tasks[0]!;
+
   await request(`/api/tasks/${taskId}`, "PUT", { ...task, title: "Edited" });
   await research.complete(id, claim!.lease, result);
   expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(0);
   expect(await d1.prepare("SELECT status FROM run WHERE id = ?").bind(id).first("status")).toBe(
     "cancelled",
   );
+
   for (let i = 1; i <= 3; i++) {
     const next = await research.start(userId, taskId, now + i * 11_000);
     const running = await research.claim(next);
+
     await research.fail(next, running!.lease, "Source unavailable.");
     await research.fail(next, running!.lease, "Duplicate failure.");
   }
+
   expect((await snapshot()).tasks[0]).toMatchObject({ status: "paused", failures: 3 });
 });
 it("keeps cooldown and daily usage on the server even when tasks are deleted", async () => {
@@ -255,31 +289,38 @@ it("keeps cooldown and daily usage on the server even when tasks are deleted", a
   const { research, userId } = await researcher();
   const now = Date.now();
   const id = await research.start(userId, taskId, now);
+
   await expect(research.start(userId, taskId, now + 1)).rejects.toThrow("Wait 10 seconds");
   const claim = await research.claim(id);
+
   await research.complete(id, claim!.lease, { summary: "No matches.", sources: [], findings: [] });
   await d1.prepare("UPDATE usage SET checks = 30 WHERE user_id = ?").bind(userId).run();
   await request(`/api/tasks/${taskId}`, "DELETE");
   const replacement = await create({ ...input, status: "active" });
+
   await expect(research.start(userId, replacement, now + 11_000)).rejects.toThrow("Daily limit");
   expect(await research.checks(userId, now)).toBe(30);
 });
 it("rolls back findings if the delivery outbox cannot be saved", async () => {
   const taskId = await create({ ...input, status: "active" });
   const { research, userId } = await researcher();
+
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
   const id = await research.start(userId, taskId);
   const claim = await research.claim(id);
+
   await d1
     .prepare(
       "CREATE TRIGGER test_delivery_failure BEFORE INSERT ON delivery BEGIN SELECT RAISE(ABORT, 'test_failure'); END;",
     )
     .run();
+
   try {
     await expect(research.complete(id, claim!.lease, result)).rejects.toThrow();
   } finally {
     await d1.prepare("DROP TRIGGER test_delivery_failure").run();
   }
+
   expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(0);
   expect(await d1.prepare("SELECT status FROM run WHERE id = ?").bind(id).first("status")).toBe(
     "running",
@@ -290,15 +331,18 @@ it("never queues email for an unverified account and cancels pending delivery wh
   const { research, userId } = await researcher();
   const now = Date.now();
   const id = await research.start(userId, taskId, now);
+
   await research.complete(id, (await research.claim(id))!.lease, result);
   expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(0);
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
   const next = await research.start(userId, taskId, now + 11_000);
+
   await research.complete(next, (await research.claim(next))!.lease, {
     ...result,
     findings: [{ ...result.findings[0]!, version: "3.0" }],
   });
   const task = (await snapshot()).tasks[0]!;
+
   await request(`/api/tasks/${taskId}`, "PUT", { ...task, status: "paused" });
   expect(await d1.prepare("SELECT status FROM delivery").first("status")).toBe("cancelled");
 });
@@ -306,10 +350,13 @@ it("never queues email for an unverified account and cancels pending delivery wh
 it("reschedules active tasks when the timezone changes and cancels mail on the first preference save", async () => {
   const taskId = await create({ ...input, status: "active" });
   const { research, userId } = await researcher();
+
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
   const id = await research.start(userId, taskId);
+
   await research.complete(id, (await research.claim(id))!.lease, result);
   const before = (await snapshot()).tasks[0]!.nextRunAt;
+
   expect(
     (
       await request("/api/preferences", "PATCH", {
@@ -319,6 +366,7 @@ it("reschedules active tasks when the timezone changes and cancels mail on the f
     ).status,
   ).toBe(204);
   const after = (await snapshot()).tasks[0]!.nextRunAt;
+
   expect(after).not.toBe(before);
   expect(
     new Intl.DateTimeFormat("en-GB", {
@@ -335,12 +383,15 @@ it("reschedules active tasks when the timezone changes and cancels mail on the f
 it("keeps findings and notification updates private to their owner", async () => {
   const taskId = await create({ ...input, status: "active" });
   const { research, userId } = await researcher();
+
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
   const id = await research.start(userId, taskId);
+
   await research.complete(id, (await research.claim(id))!.lease, result);
   await d1.prepare("UPDATE delivery SET status = 'sent', sent_at = ?").bind(Date.now()).run();
   const own = await snapshot();
   const foreign = await snapshot(bob);
+
   expect(own.findings).toHaveLength(1);
   expect(own.runs).toHaveLength(1);
   expect(own.notices).toHaveLength(1);
@@ -348,6 +399,7 @@ it("keeps findings and notification updates private to their owner", async () =>
   expect(foreign.runs).toEqual([]);
   expect(foreign.notices).toEqual([]);
   const finding = own.findings[0]!;
+
   expect((await request(`/api/findings/${finding.id}`, "PATCH", { saved: true }, bob)).status).toBe(
     404,
   );

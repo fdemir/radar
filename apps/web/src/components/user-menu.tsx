@@ -47,12 +47,16 @@ export default function UserMenu() {
             disabled={signingOut}
             onClick={async () => {
               setSigningOut(true);
+
               try {
                 const { error } = await authClient.signOut();
+
                 if (error) {
                   toast.error("Unable to sign out. Please try again.");
+
                   return;
                 }
+
                 navigate("/login", { replace: true });
               } catch {
                 toast.error("Unable to connect. Please try again.");

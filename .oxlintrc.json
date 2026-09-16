@@ -4,7 +4,51 @@
   "categories": {
     "correctness": "error"
   },
-  "rules": {},
+  "rules": {
+    "style/padding-line-between-statements": [
+      "error",
+      {
+        "blankLine": "always",
+        "prev": "import",
+        "next": "*"
+      },
+      {
+        "blankLine": "any",
+        "prev": "import",
+        "next": "import"
+      },
+      {
+        "blankLine": "always",
+        "prev": ["const", "let", "var"],
+        "next": "*"
+      },
+      {
+        "blankLine": "any",
+        "prev": ["const", "let", "var"],
+        "next": ["const", "let", "var"]
+      },
+      {
+        "blankLine": "always",
+        "prev": "*",
+        "next": ["return", "if", "for", "while", "switch", "try"]
+      },
+      {
+        "blankLine": "always",
+        "prev": ["block-like", "function", "class", "type", "interface"],
+        "next": "*"
+      },
+      {
+        "blankLine": "always",
+        "prev": "*",
+        "next": ["function", "class", "type", "interface", "export"]
+      },
+      {
+        "blankLine": "always",
+        "prev": ["if", "for", "while", "switch", "try"],
+        "next": "*"
+      }
+    ]
+  },
   "env": {
     "builtin": true
   },
@@ -16,5 +60,11 @@
     "**/src/env.ts",
     "**/.alchemy/**",
     "**/.cache/**"
+  ],
+  "jsPlugins": [
+    {
+      "name": "style",
+      "specifier": "@stylistic/eslint-plugin"
+    }
   ]
 }

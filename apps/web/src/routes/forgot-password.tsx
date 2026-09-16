@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { authClient } from "@/lib/auth-client";
+
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+
   return (
     <main className="auth-page">
       <div className="auth-sky sky" />
@@ -19,13 +21,16 @@ export default function ForgotPassword() {
               event.preventDefault();
               setBusy(true);
               setError("");
+
               try {
                 const result = await authClient.requestPasswordReset({
                   email,
                   redirectTo: `${window.location.origin}/reset-password`,
                 });
+
                 if (result.error)
                   throw new Error(result.error.message || "Unable to send reset email.");
+
                 setSent(true);
               } catch (error) {
                 setError(error instanceof Error ? error.message : "Unable to send email.");

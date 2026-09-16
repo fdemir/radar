@@ -18,6 +18,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
     },
     onSubmit: async ({ value }) => {
       setSubmitError(null);
+
       try {
         const { error } = await authClient.signUp.email({
           username: value.username.trim(),
@@ -25,12 +26,14 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
           email: value.email.trim(),
           name: value.username.trim(),
         });
+
         if (error) {
           setSubmitError(
             error.status === 429
               ? "Too many attempts. Please wait a minute and try again."
               : error.message || "Unable to continue. Please try again.",
           );
+
           return;
         }
       } catch {

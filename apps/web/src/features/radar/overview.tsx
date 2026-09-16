@@ -15,6 +15,7 @@ export default function Overview() {
       (filter === "All" || t.status === filter.toLowerCase()) &&
       `${t.title} ${t.brief}`.toLowerCase().includes(query.toLowerCase()),
   );
+
   return (
     <>
       <section className="sky workspace-hero">
@@ -60,6 +61,7 @@ export default function Overview() {
             const latest = state.runs.find((r) => r.taskId === task.id);
             const count = state.findings.filter((f) => f.taskId === task.id && !f.read).length;
             const path = task.status === "draft" ? `/tasks/${task.id}/edit` : `/tasks/${task.id}`;
+
             return (
               <article className="task-card card" key={task.id}>
                 <div className="row between">

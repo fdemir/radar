@@ -12,6 +12,7 @@ export function Brand() {
     </span>
   );
 }
+
 export function CategoryIcon({ category }: { category: Category }) {
   const Icon =
     category === "Technology"
@@ -21,8 +22,10 @@ export function CategoryIcon({ category }: { category: Category }) {
         : category === "Travel"
           ? Plane
           : Compass;
+
   return <Icon size={20} strokeWidth={1.6} className="blue-icon" />;
 }
+
 export function PageTitle({
   title,
   action,
@@ -46,6 +49,7 @@ export function PageTitle({
     </div>
   );
 }
+
 export function Status({ status }: { status: Task["status"] | "running" }) {
   return (
     <span className={`status ${status}`}>
@@ -54,6 +58,7 @@ export function Status({ status }: { status: Task["status"] | "running" }) {
     </span>
   );
 }
+
 export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="empty">
@@ -63,6 +68,7 @@ export function Empty({ children, action }: { children: ReactNode; action?: Reac
     </div>
   );
 }
+
 export function Modal({
   title,
   children,
@@ -73,9 +79,11 @@ export function Modal({
   close: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+
   useEffect(() => {
     ref.current?.showModal();
   }, []);
+
   return (
     <dialog
       ref={ref}
@@ -96,6 +104,7 @@ export function Modal({
     </dialog>
   );
 }
+
 export function Toggle({
   label,
   checked,
@@ -121,8 +130,10 @@ export function Toggle({
     </button>
   );
 }
+
 export function FindingCard({ item, open }: { item: Finding; open: (finding: Finding) => void }) {
   const { finding } = useWorkspace();
+
   return (
     <article className="finding-card card">
       <div className="row between">
@@ -164,9 +175,11 @@ export function FindingCard({ item, open }: { item: Finding; open: (finding: Fin
     </article>
   );
 }
+
 export function FindingModal({ item, close }: { item: Finding; close: () => void }) {
   const { state, finding } = useWorkspace();
   const current = state.findings.find((f) => f.id === item.id) ?? item;
+
   return (
     <Modal title={item.title} close={close}>
       <p>{item.summary}</p>

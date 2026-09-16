@@ -51,6 +51,7 @@ beforeAll(async () => {
     conditions: ["workerd"],
     external: ["node:*"],
   });
+
   runtime = new Miniflare({
     modules: true,
     script: bundled.outputFiles[0]!.text,
@@ -72,6 +73,7 @@ beforeAll(async () => {
       const url = new URL(request.url);
       const body =
         request.method === "POST" ? ((await request.json()) as Record<string, unknown>) : {};
+
       calls.push({
         host: url.hostname,
         path: url.pathname,
@@ -83,6 +85,7 @@ beforeAll(async () => {
           status,
           headers: { "Content-Type": "application/json" },
         });
+
       if (url.hostname === "model.example.com") {
         const messages = body.messages as { role: string; content: string }[];
         const data = JSON.parse(messages[1]!.content.slice("Return JSON for this data:\n".length));
@@ -106,12 +109,16 @@ beforeAll(async () => {
                 ],
               }
             : { queries: ["Hono stable release notes"] };
+
         return json({ choices: [{ message: { content: JSON.stringify(content) } }] });
       }
+
       if (url.hostname === "api.search.tinyfish.ai") {
         expect(request.headers.get("X-API-Key")).toBe("test-search-key");
         expect(url.searchParams.get("query")).toBe("Hono stable release notes");
+
         if (mode === "search-error") return json({ error: "Unavailable" }, 503);
+
         return json({
           results:
             mode === "empty"
@@ -126,11 +133,14 @@ beforeAll(async () => {
                 ],
         });
       }
+
       if (url.hostname === "api.fetch.tinyfish.ai") {
         expect(body.urls).toEqual([source]);
         expect(body.ttl).toBe(0);
+
         if (mode === "cancel")
           await d1.prepare("UPDATE task SET status = 'paused' WHERE id = ?").bind(taskId).run();
+
         return json({
           results: [
             {
@@ -142,19 +152,23 @@ beforeAll(async () => {
           errors: [],
         });
       }
+
       if (url.hostname === "api.resend.com")
         return json(
           mode === "mail-error" ? { error: "Try again" } : { id: "sent-1" },
           mode === "mail-error" ? 503 : 200,
         );
+
       throw new Error(`Unexpected outbound host: ${url.hostname}`);
     },
   });
   d1 = await runtime.getD1Database("DB");
   worker = await runtime.getWorker();
   const folder = new URL("../../../packages/db/src/migrations/", import.meta.url);
+
   for (const file of (await readdir(folder)).filter((name) => name.endsWith(".sql")).sort()) {
     const sql = await readFile(new URL(file, folder), "utf8");
+
     await d1.batch(
       sql
         .split("--> statement-breakpoint")
@@ -162,7 +176,9 @@ beforeAll(async () => {
         .map((part) => d1.prepare(part)),
     );
   }
+
   const db = createDb({ DB: d1 });
+
   research = createResearch(db);
   workspace = createWorkspace(db);
 }, 30_000);
@@ -180,12 +196,15 @@ beforeEach(async () => {
     .run();
   taskId = (await workspace.create("owner", input)).id;
 });
+
 async function consume(runId: string) {
   const result = await worker.queue("research", [
     { id: crypto.randomUUID(), timestamp: new Date(), attempts: 1, body: { runId } },
   ]);
+
   expect(result.outcome).toBe("ok");
 }
+
 const value = (table: string, column: string) =>
   d1.prepare(`SELECT ${column} FROM ${table}`).first(column);
 const sent = () => calls.filter((call) => call.host === "api.resend.com");
@@ -195,6 +214,7 @@ it("composes tasks using the compatible model inside Workers", async () => {
     method: "POST",
     body: JSON.stringify({ task: input, message: "Only stable releases" }),
   });
+
   expect(response.status).toBe(200);
   expect(await response.json()).toMatchObject({
     title: input.title,
@@ -203,6 +223,7 @@ it("composes tasks using the compatible model inside Workers", async () => {
 });
 it("runs TinyFish search and fetch, saves cited findings, and delivers once across queue duplicates", async () => {
   const id = await research.start("owner", taskId);
+
   await consume(id);
   await consume(id);
   expect(await value("run", "status")).toBe("completed");
@@ -239,6 +260,7 @@ it("stops work when a task is paused during source reading", async () => {
 it("records a provider failure once even when the queue repeats the job", async () => {
   mode = "search-error";
   const id = await research.start("owner", taskId);
+
   await consume(id);
   await consume(id);
   expect(await value("run", "status")).toBe("failed");

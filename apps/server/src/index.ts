@@ -7,6 +7,7 @@ import { env } from "./env.server";
 
 const db = createDb(env);
 const email = createEmail(env);
+
 export default createApp(
   createAuth(env, db, [], email.available ? email : undefined),
   env.CORS_ORIGIN,

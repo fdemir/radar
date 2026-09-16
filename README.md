@@ -90,3 +90,5 @@ pnpm exec alchemy deploy --stage production
 Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. If using the generated web URL, update `CORS_ORIGIN` after the first deploy and deploy again. Use web and API domains on the same site, such as `app.example.com` and `api.example.com`, to avoid third-party cookie restrictions.
 
 Cloud deployment must be verified with your Cloudflare account. Local checks do not verify cloud credentials, domains, provider quotas, or live email delivery.
+
+Formatting uses Prettier. Oxlint also requires blank lines between declarations, control flow, and returns. Run `pnpm lint:fix` to apply both.

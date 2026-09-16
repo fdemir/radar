@@ -18,18 +18,24 @@ export class WorkspaceError extends Error {
 export function createWorkspace(db: Database) {
   async function account(userId: string) {
     const result = await db.select().from(user).where(eq(user.id, userId)).get();
+
     if (!result) throw new WorkspaceError("Account not found.", 404);
+
     return result;
   }
+
   async function getTask(userId: string, id: string) {
     const result = await db
       .select()
       .from(task)
       .where(and(eq(task.userId, userId), eq(task.id, id)))
       .get();
+
     if (!result) throw new WorkspaceError("Task not found.", 404);
+
     return result;
   }
+
   async function snapshot(userId: string): Promise<Workspace> {
     const [owner, settings, tasks, findings, runs, deliveries, checks] = await Promise.all([
       account(userId),
@@ -55,6 +61,7 @@ export function createWorkspace(db: Database) {
         .get(),
     ]);
     const timezone = settings?.timezone ?? "UTC";
+
     return {
       tasks: tasks.map(
         ({ userId: _owner, createdAt: _created, updatedAt: _updated, ...item }) => item,
@@ -67,6 +74,7 @@ export function createWorkspace(db: Database) {
       runs: runs.map(({ userId: _user, revision: _revision, lease: _lease, ...item }) => item),
       notices: deliveries.flatMap((item) => {
         const first = findings.find((finding) => finding.runId === item.runId);
+
         return first
           ? [
               {
@@ -92,22 +100,27 @@ export function createWorkspace(db: Database) {
       },
     };
   }
+
   async function limitGuard<T>(write: () => Promise<T>) {
     try {
       return await write();
     } catch (error) {
       // D1 wraps SQLite errors in a cause, while other adapters use the message.
       const detail = error instanceof Error ? `${error.message} ${String(error.cause ?? "")}` : "";
+
       if (detail.includes("active_task_limit"))
         throw new WorkspaceError("5 active tasks maximum. Pause a task first.");
+
       throw error;
     }
   }
+
   return {
     snapshot,
     getTask,
     async create(userId: string, input: TaskInput) {
       const id = crypto.randomUUID();
+
       await limitGuard(() =>
         db
           .insert(task)
@@ -121,6 +134,7 @@ export function createWorkspace(db: Database) {
           })
           .run(),
       );
+
       return getTask(userId, id);
     },
     async update(userId: string, id: string, input: TaskInput) {
@@ -139,8 +153,10 @@ export function createWorkspace(db: Database) {
           .where(and(eq(task.id, id), eq(task.userId, userId), eq(task.revision, input.revision)))
           .returning(),
       );
+
       if (!result.length)
         throw new WorkspaceError("This task changed in another tab. Reload and try again.");
+
       return result[0]!;
     },
     async remove(userId: string, id: string) {
@@ -149,10 +165,13 @@ export function createWorkspace(db: Database) {
     },
     async preferences(userId: string, input: PreferencesInput) {
       const { name, ...settings } = input;
+
       if (!Object.keys(settings).length) {
         if (name !== undefined) await db.update(user).set({ name }).where(eq(user.id, userId));
+
         return;
       }
+
       const save = db
         .insert(preference)
         .values({ userId, ...settings })
@@ -165,6 +184,7 @@ export function createWorkspace(db: Database) {
               .from(task)
               .where(and(eq(task.userId, userId), eq(task.status, "active")))
           : [];
+
       await db.batch([
         save,
         ...active.map((item) =>

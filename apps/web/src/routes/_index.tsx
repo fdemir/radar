@@ -4,6 +4,7 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { authClient } from "@/lib/auth-client";
 import { CategoryIcon, Modal } from "@/features/radar/components";
 import { examples, samples } from "@/features/radar/model";
+
 export function meta() {
   return [
     { title: "Radar | Web monitoring" },
@@ -13,12 +14,15 @@ export function meta() {
     },
   ];
 }
+
 export default function Home() {
   const { data: session } = authClient.useSession();
   const [prompt, setPrompt] = useState("");
   const [selected, setSelected] = useState<(typeof samples)[number] | null>(null);
   const navigate = useNavigate();
+
   if (session) return <Navigate to="/tasks" replace />;
+
   return (
     <main>
       <section className="sky landing-hero">
@@ -33,6 +37,7 @@ export default function Home() {
             className="hero-composer"
             onSubmit={(e) => {
               e.preventDefault();
+
               if (prompt.trim()) navigate(`/login?prompt=${encodeURIComponent(prompt.trim())}`);
             }}
           >
@@ -86,6 +91,7 @@ export default function Home() {
           [Mail, "Receive new findings"],
         ].map(([Icon, label]) => {
           const StepIcon = Icon as typeof Search;
+
           return (
             <div key={String(label)}>
               <StepIcon size={22} className="blue-icon" />

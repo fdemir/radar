@@ -2,8 +2,10 @@ import { Bell } from "lucide-react";
 import { Link, NavLink } from "react-router";
 import { authClient } from "@/lib/auth-client";
 import { Brand } from "@/features/radar/components";
+
 export default function Header({ unread = 0 }: { unread?: number }) {
   const { data: session } = authClient.useSession();
+
   return (
     <header className="site-header">
       <div className="nav-container">

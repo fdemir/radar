@@ -33,6 +33,7 @@ beforeAll(async () => {
     new URL("../../../packages/db/src/migrations/0000_username_auth.sql", import.meta.url),
     "utf8",
   );
+
   await d1.batch(migration.split("--> statement-breakpoint").map((sql) => d1.prepare(sql)));
 }, 30_000);
 
@@ -69,12 +70,14 @@ function request(
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 }
+
 function cookies(response: Response) {
   return response.headers
     .getSetCookie()
     .map((cookie) => cookie.split(";")[0])
     .join("; ");
 }
+
 async function register(username = "alice", email = `${username}@example.com`) {
   const response = await request("/api/auth/sign-up/email", {
     username,
@@ -82,7 +85,9 @@ async function register(username = "alice", email = `${username}@example.com`) {
     email,
     password,
   });
+
   expect(response.status, await response.clone().text()).toBe(200);
+
   return response;
 }
 
@@ -93,6 +98,7 @@ describe("username accounts and sessions", () => {
     const aliceCookie = cookies(alice);
     const aliceBody = accountResponse.parse(await alice.json());
     const bobBody = accountResponse.parse(await bob.json());
+
     expect(aliceBody.user.username).toBe("alice");
     expect(alice.headers.get("set-cookie")).toContain("HttpOnly");
     expect(alice.headers.get("set-cookie")).toContain("SameSite=Lax");
@@ -100,6 +106,7 @@ describe("username accounts and sessions", () => {
       .prepare("SELECT password FROM account WHERE user_id = ?")
       .bind(aliceBody.user.id)
       .first<{ password: string }>();
+
     expect(stored?.password).toBeTruthy();
     expect(stored?.password).not.toBe(password);
 
@@ -109,12 +116,14 @@ describe("username accounts and sessions", () => {
       createDb({ DB: d1 }),
     );
     const me = await request(`/api/me?userId=${bobBody.user.id}`, undefined, aliceCookie);
+
     expect(me.status).toBe(200);
     expect(me.headers.get("cache-control")).toBe("no-store");
     expect(await me.json()).toEqual({
       user: { id: aliceBody.user.id, username: "alice" },
     });
     const bobMe = await request("/api/me", undefined, cookies(bob));
+
     expect(await bobMe.json()).toEqual({
       user: { id: bobBody.user.id, username: "bob" },
     });
@@ -127,6 +136,7 @@ describe("username accounts and sessions", () => {
       username: "ALICE",
       password,
     });
+
     expect(success.status).toBe(200);
     expect((await request("/api/me", undefined, cookies(success))).status).toBe(200);
     expect(
@@ -145,6 +155,7 @@ describe("username accounts and sessions", () => {
       username: "missing",
       password,
     });
+
     expect(wrongPassword.status).toBe(401);
     expect(wrongUser.status).toBe(401);
     expect(await wrongPassword.json()).toEqual(await wrongUser.json());
@@ -158,8 +169,10 @@ describe("username accounts and sessions", () => {
         email: "test@example.com",
         password,
       });
+
       expect(response.status).toBe(400);
     }
+
     expect(await d1.prepare("SELECT COUNT(*) AS count FROM user").first("count")).toBe(0);
   });
 
@@ -171,6 +184,7 @@ describe("username accounts and sessions", () => {
       email: "other@example.com",
       password,
     });
+
     expect(duplicate.status).toBe(400);
     const duplicateEmail = await request("/api/auth/sign-up/email", {
       username: "other",
@@ -178,6 +192,7 @@ describe("username accounts and sessions", () => {
       email: "alice@example.com",
       password,
     });
+
     expect(duplicateEmail.ok).toBe(false);
     expect(await d1.prepare("SELECT COUNT(*) AS count FROM user").first("count")).toBe(1);
   });
@@ -189,6 +204,7 @@ describe("username accounts and sessions", () => {
       email: "alice@example.com",
       password: "short",
     });
+
     expect(response.status).toBe(400);
     expect(await d1.prepare("SELECT COUNT(*) AS count FROM user").first("count")).toBe(0);
   });
@@ -196,6 +212,7 @@ describe("username accounts and sessions", () => {
   it("revokes the server session on logout, leaving another account signed in", async () => {
     const alice = cookies(await register());
     const bob = cookies(await register("bob"));
+
     expect((await request("/api/auth/sign-out", {}, alice)).status).toBe(200);
     expect((await request("/api/me", undefined, alice)).status).toBe(401);
     expect((await request("/api/me", undefined, bob)).status).toBe(200);
@@ -203,6 +220,7 @@ describe("username accounts and sessions", () => {
 
   it("rejects expired and tampered session cookies", async () => {
     const cookie = cookies(await register());
+
     expect((await request("/api/me", undefined, cookie + "tampered")).status).toBe(401);
     await d1.prepare("UPDATE session SET expires_at = 0").run();
     expect((await request("/api/me", undefined, cookie)).status).toBe(401);
@@ -210,6 +228,7 @@ describe("username accounts and sessions", () => {
 
   it("rejects writes from an untrusted origin", async () => {
     const cookie = cookies(await register());
+
     expect(
       (await request("/api/auth/sign-out", {}, cookie, "https://untrusted.example")).status,
     ).toBe(403);
@@ -222,6 +241,7 @@ describe("username accounts and sessions", () => {
       BETTER_AUTH_URL: "https://api.example.com",
       CORS_ORIGIN: "https://app.example.com",
     };
+
     app = createApp(
       createAuth(production, createDb({ DB: d1 })),
       production.CORS_ORIGIN,
@@ -241,8 +261,10 @@ describe("username accounts and sessions", () => {
         password,
       }),
     });
+
     expect(response.status).toBe(200);
     const cookie = response.headers.get("set-cookie");
+
     expect(cookie).toContain("Secure");
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("SameSite=None");
@@ -255,8 +277,10 @@ describe("username accounts and sessions", () => {
         username: "unknown",
         password,
       });
+
       expect(response.status).toBe(401);
     }
+
     app = createApp(
       createAuth(config, createDb({ DB: d1 })),
       config.CORS_ORIGIN,
@@ -266,6 +290,7 @@ describe("username accounts and sessions", () => {
       username: "unknown",
       password,
     });
+
     expect(blocked.status).toBe(429);
     expect(Number(blocked.headers.get("x-retry-after"))).toBeGreaterThan(0);
   });
@@ -274,6 +299,7 @@ describe("username accounts and sessions", () => {
 it("verifies email through a signed link and rejects a tampered link", async () => {
   const sent: string[] = [];
   const db = createDb({ DB: d1 });
+
   app = createApp(
     createAuth(config, db, [], {
       send: async (_to, _subject, text) => {
@@ -289,9 +315,11 @@ it("verifies email through a signed link and rejects a tampered link", async () 
     { email: "alice@example.com", callbackURL: `${config.CORS_ORIGIN}/settings` },
     cookie,
   );
+
   expect(response.status).toBe(200);
   const link = sent[0]!.match(/https?:\/\/\S+/)![0];
   const invalid = new URL(link);
+
   invalid.searchParams.set("token", "invalid");
   await app.request(invalid.href);
   expect(
@@ -300,6 +328,7 @@ it("verifies email through a signed link and rejects a tampered link", async () 
       .first("email_verified"),
   ).toBe(0);
   const verified = await app.request(link);
+
   expect(verified.headers.get("Location")).toBe(`${config.CORS_ORIGIN}/settings`);
   expect(
     await d1
@@ -310,6 +339,7 @@ it("verifies email through a signed link and rejects a tampered link", async () 
 it("resets a password with a one-use emailed token and revokes existing sessions", async () => {
   const sent: string[] = [];
   const db = createDb({ DB: d1 });
+
   app = createApp(
     createAuth(config, db, [], {
       send: async (_to, _subject, text) => {
@@ -320,6 +350,7 @@ it("resets a password with a one-use emailed token and revokes existing sessions
     db,
   );
   const cookie = cookies(await register());
+
   expect(
     (
       await request("/api/auth/request-password-reset", {
@@ -332,6 +363,7 @@ it("resets a password with a one-use emailed token and revokes existing sessions
   const redirected = await app.request(link);
   const token = new URL(redirected.headers.get("Location")!).searchParams.get("token");
   const body = { token, newPassword: "updated-password-456" };
+
   expect((await request("/api/auth/reset-password", body)).status).toBe(200);
   expect((await request("/api/me", undefined, cookie)).status).toBe(401);
   expect((await request("/api/auth/reset-password", body)).ok).toBe(false);

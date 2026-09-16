@@ -37,13 +37,18 @@ export default function Editor() {
   const [input, setInput] = useState(prompt);
   const [thinking, setThinking] = useState(false);
   const chat = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (chat.current) chat.current.scrollTop = chat.current.scrollHeight;
   }, [task.messages.length, thinking]);
+
   async function send(text = input) {
     const content = text.trim();
+
     if (!content || thinking) return;
+
     setThinking(true);
+
     try {
       const result = taskInputSchema.parse(
         await api("/tasks/compose", "POST", {
@@ -51,6 +56,7 @@ export default function Editor() {
           message: content,
         }),
       );
+
       setTask((current) => ({ ...current, ...result, status: current.status }));
       setInput("");
     } catch (error) {
@@ -59,12 +65,15 @@ export default function Editor() {
       setThinking(false);
     }
   }
+
   const ready =
     task.title.trim().length > 0 &&
     task.brief.trim().length >= 10 &&
     (task.frequency === "Hourly" || Boolean(task.time));
+
   async function submit(active: boolean) {
     if (active && !ready) return;
+
     const next: Task = {
       ...task,
       title: task.title.trim() || "Untitled task",
@@ -72,17 +81,20 @@ export default function Editor() {
       failures: 0,
     };
     const id = await save(next);
+
     if (id) {
       toast(active ? "Task saved" : "Draft saved");
       navigate(active ? `/tasks/${id}` : "/tasks");
     }
   }
+
   if (taskId && !existing)
     return (
       <main className="container">
         <Empty action={<Link to="/tasks">Back to tasks</Link>}>Task not found.</Empty>
       </main>
     );
+
   return (
     <main className="container workspace-main">
       <PageTitle

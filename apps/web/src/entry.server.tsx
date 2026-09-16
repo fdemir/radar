@@ -29,6 +29,7 @@ export default async function handleRequest(
       signal: AbortSignal.timeout(streamTimeout + 1000),
       onError(error: unknown) {
         responseStatusCode = 500;
+
         // Log streaming rendering errors from inside the shell. Don't log
         // errors encountered during initial shell rendering since they'll
         // reject and get logged in handleDocumentRequest.
@@ -38,6 +39,7 @@ export default async function handleRequest(
       },
     },
   );
+
   shellRendered = true;
 
   // Ensure requests from bots and SPA Mode renders wait for all content to load before responding
@@ -47,6 +49,7 @@ export default async function handleRequest(
   }
 
   responseHeaders.set("Content-Type", "text/html");
+
   return new Response(body, {
     headers: responseHeaders,
     status: responseStatusCode,
