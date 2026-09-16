@@ -8,7 +8,8 @@
     "check-types": "react-router typegen && tsc --noEmit",
     "dev:bare": "react-router dev",
     "env:generate": "varlock codegen",
-    "dev:local": "react-router dev --port 5174 --strictPort"
+    "dev:local": "react-router dev --port 5174 --strictPort",
+    "test": "vitest run"
   },
   "dependencies": {
     "@radar/ui": "workspace:*",
@@ -36,6 +37,7 @@
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vitest": "4.1.11"
   }
 }

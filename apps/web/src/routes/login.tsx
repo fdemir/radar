@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 
 import Loader from "@/components/loader";
 import SignInForm from "@/components/sign-in-form";
@@ -7,6 +7,8 @@ import SignUpForm from "@/components/sign-up-form";
 import { authClient } from "@/lib/auth-client";
 
 export default function Login() {
+  const [params] = useSearchParams();
+  const prompt = params.get("prompt");
   const [showSignIn, setShowSignIn] = useState(true);
   const { data: session, isPending, error, refetch } = authClient.useSession();
 
@@ -20,11 +22,24 @@ export default function Login() {
         </button>
       </div>
     );
-  if (session) return <Navigate to="/tasks" replace />;
+  if (session)
+    return (
+      <Navigate
+        to={prompt ? `/tasks/new?prompt=${encodeURIComponent(prompt)}` : "/tasks"}
+        replace
+      />
+    );
 
-  return showSignIn ? (
-    <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
-  ) : (
-    <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
+  return (
+    <main className="auth-page">
+      <div className="auth-sky sky" />
+      <section className="card auth-card">
+        {showSignIn ? (
+          <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
+        ) : (
+          <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
+        )}
+      </section>
+    </main>
   );
 }

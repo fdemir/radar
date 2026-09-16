@@ -45,9 +45,17 @@ pnpm dev:local
 
 Open [http://localhost:5174](http://localhost:5174). The local API runs on port 3000. Migrations run automatically; accounts and the auth secret persist in the ignored `.cache/local` directory. `pnpm dev` remains available for Alchemy development.
 
+## Workspace
+
+The app uses the Letters design: white surfaces, a sky gradient hero, near-black pill buttons, and small blue icon accents. Screens include tasks, conversational setup and editing, findings, run history, notifications, and account settings.
+
+Authentication uses the real local API. Research, schedules, email verification and Discord linking/delivery are simulated; no searches or messages are sent. Task data and preferences persist per account in this browser. Use a task’s **Sample outcome** control to try new findings, no matches, and failures. Three consecutive failures pause a task; repeated sources do not create duplicate findings or notifications. **Sample data** in the footer restores the initial workspace.
+
+Display names and notification preferences are sample workspace data; they do not modify login credentials.
+
 ## Authentication
 
-Registration requires a username, email, and password. Sign-in uses the username and password; usernames are case-insensitive. `/tasks` requires a session and currently displays an empty state. Email verification, password recovery, and Discord account linking are not implemented yet.
+Registration requires a username, email, and password. Sign-in uses the username and password; usernames are case-insensitive. Workspace routes require a session. Live email verification, password recovery, and Discord account linking are not implemented yet. Email verification and Discord linking have sample UI flows.
 
 Apply the checked-in migration before using auth. HTTPS uses secure, HTTP-only cookies; local HTTP development uses SameSite=Lax cookies. Deploy the web and API on the same site (for example, `app.example.com` and `api.example.com`) to avoid third-party cookie restrictions. `CORS_ORIGIN` must match the web origin exactly.
 

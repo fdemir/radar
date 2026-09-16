@@ -2,14 +2,12 @@ import { Button } from "@radar/ui/components/button";
 import { Input } from "@radar/ui/components/input";
 import { Label } from "@radar/ui/components/label";
 import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "react-router";
 import { useState } from "react";
 import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
 export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
-  const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
@@ -32,7 +30,6 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
           );
           return;
         }
-        navigate("/tasks", { replace: true });
       } catch {
         setSubmitError("Unable to connect. Please try again.");
       }
@@ -138,11 +135,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
       </form>
 
       <div className="mt-4 text-center">
-        <Button
-          variant="link"
-          onClick={onSwitchToSignUp}
-          className="text-indigo-600 hover:text-indigo-800"
-        >
+        <Button variant="link" onClick={onSwitchToSignUp} className="">
           Need an account? Sign Up
         </Button>
       </div>

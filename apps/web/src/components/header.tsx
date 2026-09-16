@@ -1,37 +1,47 @@
-import { NavLink } from "react-router";
-
-import { ModeToggle } from "./mode-toggle";
-import UserMenu from "./user-menu";
-
-export default function Header() {
-  const links = [
-    { to: "/", label: "Home" },
-    { to: "/tasks", label: "Tasks" },
-  ] as const;
-
+import { Bell } from "lucide-react";
+import { Link, NavLink } from "react-router";
+import { authClient } from "@/lib/auth-client";
+import { Brand } from "@/features/radar/components";
+export default function Header({ unread = 0 }: { unread?: number }) {
+  const { data: session } = authClient.useSession();
   return (
-    <div>
-      <div className="flex flex-row items-center justify-between px-2 py-1">
-        <nav className="flex gap-4 text-lg">
-          {links.map(({ to, label }) => {
-            return (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) => (isActive ? "font-bold" : "")}
-                end
+    <header className="site-header">
+      <div className="nav-container">
+        <Link to={session ? "/tasks" : "/"} aria-label="Radar home">
+          <Brand />
+        </Link>
+        {session ? (
+          <>
+            <nav aria-label="Main navigation">
+              <NavLink to="/tasks">Tasks</NavLink>
+              <NavLink to="/discoveries">Discoveries</NavLink>
+              <NavLink to="/settings">Settings</NavLink>
+            </nav>
+            <div className="nav-account">
+              <Link
+                to="/notifications"
+                className="icon-button bell"
+                aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
               >
-                {label}
-              </NavLink>
-            );
-          })}
-        </nav>
-        <div className="flex items-center gap-2">
-          <ModeToggle />
-          <UserMenu />
-        </div>
+                <Bell size={20} strokeWidth={1.6} />
+                {unread > 0 && <i />}
+              </Link>
+              <Link className="avatar" to="/settings" aria-label="Account settings">
+                {(session.user.username ?? session.user.name).slice(0, 1).toUpperCase()}
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <nav aria-label="Main navigation">
+              <Link to="/#examples">Examples</Link>
+            </nav>
+            <Link to="/login" className="button secondary">
+              Sign in <span aria-hidden="true">↗</span>
+            </Link>
+          </>
+        )}
       </div>
-      <hr />
-    </div>
+    </header>
   );
 }
