@@ -254,3 +254,34 @@ describe("username accounts and sessions", () => {
     expect(Number(blocked.headers.get("x-retry-after"))).toBeGreaterThan(0);
   });
 });
+
+it("verifies email through a signed link and rejects a tampered link", async () => {
+  const sent: string[] = [];
+  const db = createDb({ DB: d1 });
+  app = createApp(createAuth(config, db, [], { send: async (_to, _subject, text) => { sent.push(text); } }), config.CORS_ORIGIN, db);
+  const cookie = cookies(await register());
+  const response = await request("/api/auth/send-verification-email", { email: "alice@example.com", callbackURL: `${config.CORS_ORIGIN}/settings` }, cookie);
+  expect(response.status).toBe(200);
+  const link = sent[0]!.match(/https?:\/\/\S+/)![0];
+  const invalid = new URL(link); invalid.searchParams.set("token", "invalid");
+  await app.request(invalid.href);
+  expect(await d1.prepare("SELECT email_verified FROM user WHERE username = 'alice'").first("email_verified")).toBe(0);
+  const verified = await app.request(link);
+  expect(verified.headers.get("Location")).toBe(`${config.CORS_ORIGIN}/settings`);
+  expect(await d1.prepare("SELECT email_verified FROM user WHERE username = 'alice'").first("email_verified")).toBe(1);
+});
+it("resets a password with a one-use emailed token and revokes existing sessions", async () => {
+  const sent: string[] = [];
+  const db = createDb({ DB: d1 });
+  app = createApp(createAuth(config, db, [], { send: async (_to, _subject, text) => { sent.push(text); } }), config.CORS_ORIGIN, db);
+  const cookie = cookies(await register());
+  expect((await request("/api/auth/request-password-reset", { email: "alice@example.com", redirectTo: `${config.CORS_ORIGIN}/reset-password` })).status).toBe(200);
+  const link = sent[0]!.match(/https?:\/\/\S+/)![0];
+  const redirected = await app.request(link);
+  const token = new URL(redirected.headers.get("Location")!).searchParams.get("token");
+  const body = { token, newPassword: "updated-password-456" };
+  expect((await request("/api/auth/reset-password", body)).status).toBe(200);
+  expect((await request("/api/me", undefined, cookie)).status).toBe(401);
+  expect((await request("/api/auth/reset-password", body)).ok).toBe(false);
+  expect((await request("/api/auth/sign-in/username", { username: "alice", password: body.newPassword })).status).toBe(200);
+});
