@@ -199,3 +199,37 @@ it("never queues email for an unverified account and cancels pending delivery wh
   await request(`/api/tasks/${taskId}`, "PUT", { ...task, status: "paused" });
   expect(await d1.prepare("SELECT status FROM delivery").first("status")).toBe("cancelled");
 });
+
+it("reschedules active tasks when the timezone changes and cancels mail on the first preference save", async () => {
+  const taskId = await create({ ...input, status: "active" });
+  const { research, userId } = await researcher();
+  await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+  const id = await research.start(userId, taskId);
+  await research.complete(id, (await research.claim(id))!.lease, result);
+  const before = (await snapshot()).tasks[0]!.nextRunAt;
+  expect((await request("/api/preferences", "PATCH", { timezone: "Europe/Istanbul", emailEnabled: false })).status).toBe(204);
+  expect((await snapshot()).tasks[0]!.nextRunAt).toBe(before! - 3 * 3_600_000);
+  expect(await d1.prepare("SELECT status FROM delivery").first("status")).toBe("cancelled");
+  expect((await request("/api/preferences", "PATCH", { emailEnabled: true })).status).toBe(204);
+  expect(await d1.prepare("SELECT status FROM delivery").first("status")).toBe("cancelled");
+});
+
+it("keeps findings and notification updates private to their owner", async () => {
+  const taskId = await create({ ...input, status: "active" });
+  const { research, userId } = await researcher();
+  await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+  const id = await research.start(userId, taskId);
+  await research.complete(id, (await research.claim(id))!.lease, result);
+  await d1.prepare("UPDATE delivery SET status = 'sent', sent_at = ?").bind(Date.now()).run();
+  const own = await snapshot(); const foreign = await snapshot(bob);
+  expect(own.findings).toHaveLength(1); expect(own.runs).toHaveLength(1); expect(own.notices).toHaveLength(1);
+  expect(foreign.findings).toEqual([]); expect(foreign.runs).toEqual([]); expect(foreign.notices).toEqual([]);
+  const finding = own.findings[0]!;
+  expect((await request(`/api/findings/${finding.id}`, "PATCH", { saved: true }, bob)).status).toBe(404);
+  expect((await request(`/api/findings/${finding.id}`, "PATCH", { read: true, saved: true })).status).toBe(204);
+  expect((await snapshot()).findings[0]).toMatchObject({ read: true, saved: true });
+  await request("/api/notices/read", "POST", {}, bob);
+  expect((await snapshot()).notices[0]!.read).toBe(false);
+  await request("/api/notices/read", "POST", { id: own.notices[0]!.id });
+  expect((await snapshot()).notices[0]!.read).toBe(true);
+});

@@ -1,0 +1,6 @@
+{
+  "name": "@radar/worker", "private": true, "type": "module",
+  "scripts": { "check-types": "tsc --noEmit", "build": "tsdown" },
+  "dependencies": { "@radar/agent": "workspace:*", "@radar/core": "workspace:*", "@radar/db": "workspace:*", "@radar/notifications": "workspace:*" },
+  "devDependencies": { "@radar/config": "workspace:*", "@radar/infra": "workspace:*", "typescript": "catalog:", "tsdown": "^0.23.0" }
+}

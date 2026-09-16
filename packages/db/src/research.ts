@@ -77,7 +77,10 @@ export function createResearch(db: Database) {
       return row?.checks ?? 0;
     },
     async due(now = Date.now()) {
-      return raw.prepare("SELECT id, user_id AS userId FROM task WHERE status = 'active' AND next_run_at <= ? ORDER BY next_run_at LIMIT 100").bind(now).all<{ id: string; userId: string }>();
+      return raw.prepare(`SELECT t.id, t.user_id AS userId FROM task t WHERE t.status = 'active' AND t.next_run_at <= ?
+        AND NOT EXISTS (SELECT 1 FROM run r WHERE r.task_id = t.id AND r.status = 'running')
+        AND NOT EXISTS (SELECT 1 FROM usage u WHERE u.user_id = t.user_id AND u.day = ? AND u.checks >= 30)
+        ORDER BY t.next_run_at LIMIT 100`).bind(now, dayKey("UTC", now)).all<{ id: string; userId: string }>();
     },
     async queued() { return db.select({ id: run.id }).from(run).where(and(eq(run.status, "running"), eq(run.stage, 0))).limit(100); },
     async expire(now = Date.now()) {

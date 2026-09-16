@@ -24,6 +24,7 @@ export const taskInputSchema = z.object({
 export const taskSchema = taskInputSchema.safeExtend({
   id: z.string(),
   failures: z.number().int().nonnegative(),
+  nextRunAt: z.number().nullable().default(null),
 });
 export const timezoneSchema = z.string().max(100).refine((timezone) => {
   try { new Intl.DateTimeFormat("en", { timeZone: timezone }); return true; }
@@ -59,6 +60,7 @@ export const noticeSchema = z.object({
   date: z.iso.datetime(), read: z.boolean(),
 });
 export const workspaceSchema = z.object({
+  emailAvailable: z.boolean().default(false), researchAvailable: z.boolean().default(false),
   tasks: z.array(taskSchema), findings: z.array(findingSchema), runs: z.array(runSchema),
   notices: z.array(noticeSchema), preferences: preferencesSchema, checks: z.number(), day: z.string(),
 });

@@ -1,6 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray } from "drizzle-orm";
 import { dayKey, type PreferencesInput, type TaskInput, type Workspace } from "@radar/core";
+import { nextRunAt } from "@radar/core/schedule";
 import type { Database } from "./index";
+import { delivery, finding, run, usage } from "./schema/research";
 import { user } from "./schema/auth";
 import { preference, task } from "./schema/tasks";
 
@@ -20,15 +22,26 @@ export function createWorkspace(db: Database) {
     return result;
   }
   async function snapshot(userId: string): Promise<Workspace> {
-    const [owner, settings, tasks] = await Promise.all([
+    const [owner, settings, tasks, findings, runs, deliveries, checks] = await Promise.all([
       account(userId),
       db.select().from(preference).where(eq(preference.userId, userId)).get(),
       db.select().from(task).where(eq(task.userId, userId)).orderBy(desc(task.createdAt)),
+      db.select({ ...getTableColumns(finding), category: task.category }).from(finding).innerJoin(task, eq(task.id, finding.taskId)).where(eq(task.userId, userId)).orderBy(desc(finding.date)),
+      db.select().from(run).where(eq(run.userId, userId)).orderBy(desc(run.started)),
+      db.select({ ...getTableColumns(delivery) }).from(delivery).innerJoin(task, eq(task.id, delivery.taskId)).where(and(eq(task.userId, userId), eq(delivery.status, "sent"))).orderBy(desc(delivery.sentAt)),
+      db.select().from(usage).where(and(eq(usage.userId, userId), eq(usage.day, dayKey("UTC")))).get(),
     ]);
     const timezone = settings?.timezone ?? "UTC";
     return {
-      tasks: tasks.map(({ userId: _owner, nextRunAt: _next, createdAt: _created, updatedAt: _updated, ...item }) => item),
-      findings: [], runs: [], notices: [], checks: 0, day: dayKey(timezone),
+      tasks: tasks.map(({ userId: _owner, createdAt: _created, updatedAt: _updated, ...item }) => item),
+      emailAvailable: false, researchAvailable: false,
+      findings: findings.map(({ runId: _run, eventKey: _event, version: _version, ...item }) => item),
+      runs: runs.map(({ userId: _user, revision: _revision, lease: _lease, ...item }) => item),
+      notices: deliveries.flatMap((item) => {
+        const first = findings.find((finding) => finding.runId === item.runId);
+        return first ? [{ id: item.id, taskId: item.taskId, findingId: first.id, channel: "Email" as const, date: new Date(item.sentAt!).toISOString(), read: item.read }] : [];
+      }),
+      checks: checks?.checks ?? 0, day: dayKey("UTC"),
       preferences: {
         name: owner.name, email: owner.email, verified: owner.emailVerified,
         emailEnabled: settings?.emailEnabled ?? true, timezone, language: settings?.language ?? "English",
@@ -70,11 +83,22 @@ export function createWorkspace(db: Database) {
     },
     async preferences(userId: string, input: PreferencesInput) {
       const { name, ...settings } = input;
-      const save = db.insert(preference).values({ userId, ...settings }).onConflictDoUpdate({ target: preference.userId, set: Object.keys(settings).length ? settings : { userId } });
-      if (Object.keys(settings).length && name !== undefined) {
-        await db.batch([save, db.update(user).set({ name }).where(eq(user.id, userId))]);
-      } else if (Object.keys(settings).length) { await save; }
-      else if (name !== undefined) { await db.update(user).set({ name }).where(eq(user.id, userId)); }
+      if (!Object.keys(settings).length) {
+        if (name !== undefined) await db.update(user).set({ name }).where(eq(user.id, userId));
+        return;
+      }
+      const save = db.insert(preference).values({ userId, ...settings }).onConflictDoUpdate({ target: preference.userId, set: settings });
+      const current = await db.select().from(preference).where(eq(preference.userId, userId)).get();
+      const active = input.timezone !== undefined && input.timezone !== (current?.timezone ?? "UTC")
+        ? await db.select().from(task).where(and(eq(task.userId, userId), eq(task.status, "active"))) : [];
+      await db.batch([
+        save,
+        ...active.map((item) => db.update(task).set({ nextRunAt: nextRunAt(item.frequency, item.time, input.timezone!, Date.now()) })
+          .where(and(eq(task.id, item.id), eq(task.revision, item.revision), eq(task.status, "active")))),
+        ...(input.emailEnabled === false ? [db.update(delivery).set({ status: "cancelled" })
+          .where(and(inArray(delivery.taskId, db.select({ id: task.id }).from(task).where(eq(task.userId, userId))), inArray(delivery.status, ["pending", "sending"])))] : []),
+        ...(name !== undefined ? [db.update(user).set({ name }).where(eq(user.id, userId))] : []),
+      ]);
     },
   };
 }
