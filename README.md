@@ -1,153 +1,87 @@
-# radar
+# Radar
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, React Router, Hono, and more.
+Describe what to follow. Radar checks the web on a schedule and saves new findings with source links.
 
-## Features
+Built with React Router, Hono, Better Auth, Drizzle, Cloudflare D1 and Workers, LangGraph, TinyFish, and an OpenAI-compatible model. The monorepo uses pnpm, Turborepo, Alchemy, and Oxlint.
 
-- **TypeScript** - For type safety and improved developer experience
-- **React Router** - Declarative routing for React
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Hono** - Lightweight, performant server framework
-- **workers** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **Cloudflare D1** - Database engine
-- **Authentication** - Better-Auth
-- **Turborepo** - Optimized monorepo build system
+## Local setup
 
-## Getting Started
+Use Node.js 22.15 or later and pnpm 10.
 
-First, install the dependencies:
-
-```bash
+```sh
 pnpm install
-```
-
-## Database Setup
-
-This project uses Cloudflare D1 (SQLite) with Drizzle ORM.
-
-Runtime database access uses the Cloudflare `DB` binding from `packages/infra/alchemy.run.ts`. If a local `DATABASE_URL` is present, it is only for database tooling.
-
-Alchemy provisions the D1 database and applies migrations during `deploy`.
-
-1. Generate migration files:
-
-```bash
-pnpm run db:generate
-```
-
-Start the local app without cloud credentials:
-
-```bash
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
 pnpm dev:local
 ```
 
-Open [http://localhost:5174](http://localhost:5174). The local API runs on port 3000. Migrations run automatically; accounts and the auth secret persist in the ignored `.cache/local` directory. `pnpm dev` remains available for Alchemy development.
+Open [localhost:5174](http://localhost:5174). The API runs on port 3000. Local accounts, tasks, queues, and the auth secret persist in the ignored `.cache/local` folder. Migrations run automatically. No Cloudflare account is needed for local development.
 
-## Workspace
+Add these values to `apps/server/.env` to enable research:
 
-The app uses the Letters design: white surfaces, a sky gradient hero, near-black pill buttons, and small blue icon accents. Screens include tasks, conversational setup and editing, findings, run history, notifications, and account settings.
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Model provider key |
+| `OPENAI_BASE_URL` | Compatible API URL, including `/v1` |
+| `OPENAI_MODEL` | Model available through your provider |
+| `TINYFISH_API_KEY` | TinyFish Search and Fetch key |
 
-Authentication uses the real local API. Research, schedules, email verification and Discord linking/delivery are simulated; no searches or messages are sent. Task data and preferences persist per account in this browser. Use a task’s **Sample outcome** control to try new findings, no matches, and failures. Three consecutive failures pause a task; repeated sources do not create duplicate findings or notifications. **Sample data** in the footer restores the initial workspace.
+The model must support Chat Completions with JSON responses. The default is `gpt-5.6-luna`; change it if your provider uses another model name.
 
-Display names and notification preferences are sample workspace data; they do not modify login credentials.
+Email is optional. Set `RESEND_API_KEY` and `EMAIL_FROM` to a sender verified in Resend, then restart. Without them, research works but email delivery, verification, and password recovery stay unavailable. Verify your account email in Settings before receiving findings. Restart the local API after changing environment values.
 
-## Authentication
+## Behavior
 
-Registration requires a username, email, and password. Sign-in uses the username and password; usernames are case-insensitive. Workspace routes require a session. Live email verification, password recovery, and Discord account linking are not implemented yet. Email verification and Discord linking have sample UI flows.
+- Sign up and sign in with a username and password.
+- Create a task through chat or edit its details directly. Drafts do not run.
+- Activate a task to run its first check. Pause, resume, edit, or delete it from the task screen.
+- Check hourly, daily, every three days, or weekly in your chosen timezone. Local schedules run while `pnpm dev:local` is running; deployed schedules run without an open browser.
+- Read findings, save them, and inspect run history and sources. The landing page contains clearly marked sample findings; account workspaces use the database.
+- Receive one email summary when a run adds findings. Duplicate event/version pairs do not create another finding or email.
 
-Apply the checked-in migration before using auth. HTTPS uses secure, HTTP-only cookies; local HTTP development uses SameSite=Lax cookies. Deploy the web and API on the same site (for example, `app.example.com` and `api.example.com`) to avoid third-party cookie restrictions. `CORS_ORIGIN` must match the web origin exactly.
+Research uses at most five search queries, five pages, and five findings per run. If the first searches are empty, it can broaden the queries within the same budget. Model output must cite a page the run actually read. Each run has a three-minute research deadline; the scheduler recovers stuck work after ten minutes. Three consecutive failures pause the task.
 
-Run the auth integration tests against an isolated local D1 database, without a Cloudflare account:
+Each account can have five active tasks and thirty checks per UTC day. Manual checks have a ten-second cooldown. Editing or pausing a task cancels its old work and pending mail. A provider request that has already started may still finish. Delivery retries use a stable Resend idempotency key.
 
-```bash
-pnpm test
+Discord is deferred. There is no Discord login or bot in this version.
+
+## Project layout
+
+| Path | Responsibility |
+| --- | --- |
+| `apps/web` | Letters UI and public examples |
+| `apps/server` | Hono API, authentication, task ownership |
+| `apps/worker` | Scheduled checks, queue consumption, email delivery |
+| `packages/agent` | LangGraph research, TinyFish, model calls |
+| `packages/core` | Shared validation and schedule rules |
+| `packages/db` | D1 schema, migrations, queries, atomic finding delivery records |
+| `packages/auth` | Better Auth configuration |
+| `packages/notifications` | Resend adapter |
+| `packages/ui` | Shared components and styles |
+| `packages/infra` | Alchemy Cloudflare resources |
+
+## Checks
+
+```sh
+pnpm lint
 pnpm check-types
+pnpm test
 pnpm build
 ```
 
-## UI Customization
+Tests use isolated local D1 databases and the Workers runtime. Provider responses are controlled in integration tests; tests do not send real emails or require service keys.
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+Generate migrations after changing the database schema with `pnpm db:generate`. Environment schemas are checked in; generated accessors can be refreshed with `pnpm env:generate`. Keep keys in ignored environment files.
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
+## Cloudflare deployment
 
-### Add more shared components
+Configure your Cloudflare profile with `cd packages/infra && pnpm exec alchemy profile edit`. Set a persistent `BETTER_AUTH_SECRET` of at least 32 characters and the exact web origin in `CORS_ORIGIN` in `apps/server/.env`, along with the service values above.
 
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+```sh
+cd packages/infra
+pnpm exec alchemy deploy --stage production
 ```
 
-Import shared components like this:
+Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. If using the generated web URL, update `CORS_ORIGIN` after the first deploy and deploy again. Use web and API domains on the same site, such as `app.example.com` and `api.example.com`, to avoid third-party cookie restrictions.
 
-```tsx
-import { Button } from "@radar/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Environment Configuration
-
-Each app owns its environment schema in `.env.schema`. Varlock generates `src/env.ts` during installation; run `pnpm run env:generate` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
-
-Import the generated `ENV` accessor in application code. Shared database and auth packages receive configuration or initialized clients from the application. See [Varlock's monorepo guide](https://varlock.dev/guides/monorepos/).
-
-For Cloudflare, Alchemy loads and validates deployment inputs with `varlock/auto-load` in its Node/Bun deployment process. Worker code reads native bindings; web clients use the framework's public env API through `src/env.public.ts` where needed. Alchemy supplies resource URLs and managed database credentials. In-Worker Varlock protections are deferred until an official Alchemy integration is available; see [the non-Wrangler deployment guidance](https://varlock.dev/integrations/cloudflare/#non-wrangler-deploy-tools-alchemy-sst-pulumi).
-
-Bun's automatic env loading is disabled in `bunfig.toml`; the framework integration or server bootstrap loads Varlock. Node deployments must include Varlock and its dependencies alongside the app schema.
-
-## Deployment
-
-### Alchemy
-
-- Target: web on Cloudflare + server on Cloudflare
-- Configure provider accounts: `cd packages/infra && pnpm exec alchemy profile edit`
-- Dev: pnpm run dev
-- Deploy: pnpm run deploy
-- Destroy: pnpm run destroy
-
-`alchemy profile edit` stores the selected Axiom, Cloudflare, Neon, PlanetScale, and/or Prisma provider profiles under `~/.alchemy`; no provider-specific setup command is required by this scaffold.
-
-Deploys are staged and default to a personal `dev_<username>` stage. For production, run the deploy with an explicit stage from `packages/infra`:
-
-```bash
-cd packages/infra && pnpm exec alchemy deploy --stage production
-```
-
-### Production origins
-
-- Required after the first deploy: set `CORS_ORIGIN` in `apps/server/.env` to the exact deployed web origin, such as `https://app.example.com`, then deploy the server again.
-
-## Project Structure
-
-```
-radar/
-├── apps/
-│   ├── web/         # Frontend application (React + React Router)
-│   └── server/      # Backend API (Hono)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
-
-## Available Scripts
-
-- `pnpm dev:local`: Start the web app and persistent local API without cloud credentials
-- `pnpm run dev`: Start applications through Alchemy
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run dev:server`: Start only the server
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run db:generate`: Generate database client/types
-
-## Linting
-
-Run `pnpm lint` to check all apps and packages with Oxlint (TypeScript and React rules). Run `pnpm lint:fix` to apply safe fixes. Generated files and build outputs are excluded.
+Cloud deployment must be verified with your Cloudflare account. Local checks do not verify cloud credentials, domains, provider quotas, or live email delivery.
