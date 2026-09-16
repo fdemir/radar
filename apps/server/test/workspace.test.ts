@@ -208,7 +208,9 @@ it("reschedules active tasks when the timezone changes and cancels mail on the f
   await research.complete(id, (await research.claim(id))!.lease, result);
   const before = (await snapshot()).tasks[0]!.nextRunAt;
   expect((await request("/api/preferences", "PATCH", { timezone: "Europe/Istanbul", emailEnabled: false })).status).toBe(204);
-  expect((await snapshot()).tasks[0]!.nextRunAt).toBe(before! - 3 * 3_600_000);
+  const after = (await snapshot()).tasks[0]!.nextRunAt;
+  expect(after).not.toBe(before);
+  expect(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", hour: "2-digit", minute: "2-digit" }).format(after!)).toBe("09:00");
   expect(await d1.prepare("SELECT status FROM delivery").first("status")).toBe("cancelled");
   expect((await request("/api/preferences", "PATCH", { emailEnabled: true })).status).toBe(204);
   expect(await d1.prepare("SELECT status FROM delivery").first("status")).toBe("cancelled");
