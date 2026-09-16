@@ -89,14 +89,14 @@ Generate migrations after changing the database schema with `pnpm db:generate`. 
 
 Configure your Cloudflare profile with `cd packages/infra && pnpm exec alchemy profile edit`. Keep production settings in the ignored `packages/infra/.env.production.local` file, separate from local development. Set `NODE_ENV=production`, a separate persistent `BETTER_AUTH_SECRET` of at least 32 characters, and the service values above.
 
-The web worker is named `radar-<stage>`. For the production stage, set `CORS_ORIGIN=https://radar-production.<account-subdomain>.workers.dev`, using your Cloudflare account's Workers subdomain.
+The web worker is named `radar-<stage>`. Production uses `radar.fdemir.dev` for the web app and `radar-api.fdemir.dev` for the API. Set `CORS_ORIGIN=https://radar.fdemir.dev`. The `fdemir.dev` zone must be active in the Cloudflare account. Alchemy manages both custom domains and their HTTPS certificates.
 
 ```sh
 cd packages/infra
 pnpm exec alchemy deploy --stage production --env-file .env.production.local
 ```
 
-Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. Its first deployment also creates a shared state store in the Cloudflare account. Local accounts and tasks are not copied to production. The web app and API use the same account's Workers subdomain so sign-in cookies stay on the same site.
+Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. Its first deployment also creates a shared state store in the Cloudflare account. Local accounts and tasks are not copied to production. The web app and API share the `fdemir.dev` site so sign-in cookies work without third-party cookies.
 
 Deployments copy the SQL files listed in the Drizzle journal into an ignored `.alchemy/migrations` folder. Alchemy applies these unchanged files and tracks production migrations. Keep generating schema changes with `pnpm db:generate`.
 

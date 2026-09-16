@@ -36,23 +36,31 @@ export const researchWorker = Cloudflare.Worker("research", {
   dev: { port: 3001 },
 });
 
-export const server = Cloudflare.Worker("server", {
-  main: "../../apps/server/src/index.ts",
-  compatibility: {
-    flags: ["nodejs_compat"],
-  },
-  env: {
-    DB: db,
-    RESEARCH_QUEUE: researchQueue,
-    ...services,
-    CORS_ORIGIN: Config.string("CORS_ORIGIN"),
-    BETTER_AUTH_SECRET: Config.redacted("BETTER_AUTH_SECRET"),
-    BETTER_AUTH_URL: Cloudflare.Worker.URL,
-  },
-  dev: {
-    port: 3000,
-  },
-});
+export const server = Cloudflare.Worker(
+  "server",
+  Effect.gen(function* () {
+    const stage = yield* Alchemy.Stage;
+
+    return {
+      main: "../../apps/server/src/index.ts",
+      domain: stage === "production" ? "radar-api.fdemir.dev" : undefined,
+      compatibility: {
+        flags: ["nodejs_compat"],
+      },
+      env: {
+        DB: db,
+        RESEARCH_QUEUE: researchQueue,
+        ...services,
+        CORS_ORIGIN: Config.string("CORS_ORIGIN"),
+        BETTER_AUTH_SECRET: Config.redacted("BETTER_AUTH_SECRET"),
+        BETTER_AUTH_URL: Cloudflare.Worker.URL,
+      },
+      dev: {
+        port: 3000,
+      },
+    };
+  }),
+);
 
 export type ServerEnv = Cloudflare.InferEnv<typeof server>;
 
@@ -76,6 +84,7 @@ export default Alchemy.Stack(
 
     const webWorker = yield* Cloudflare.Website.Vite("web", {
       name: `radar-${stage}`,
+      domain: stage === "production" ? "radar.fdemir.dev" : undefined,
       rootDir: "../../apps/web",
       main: "workers/app.ts",
       memo: {
