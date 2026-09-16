@@ -15,6 +15,13 @@
       "when": 1789536464389,
       "tag": "0001_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789536817999,
+      "tag": "0002_research",
+      "breakpoints": true
     }
   ]
 }

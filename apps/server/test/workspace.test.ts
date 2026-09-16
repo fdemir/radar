@@ -1,3 +1,4 @@
+import { createResearch } from "@radar/db/research";
 import { URL } from "node:url";
 import { readdir, readFile } from "node:fs/promises";
 import { createAuth } from "@radar/auth";
@@ -106,4 +107,95 @@ it("saves preferences without letting the client verify or replace the account e
   for (const patch of [{ verified: true }, { email: "changed@example.com" }, { timezone: "Mars/Olympus" }]) {
     expect((await request("/api/preferences", "PATCH", patch)).status).toBe(400);
   }
+});
+
+async function researcher() {
+  const response = await request("/api/me");
+  const { user } = z.object({ user: z.object({ id: z.string() }) }).parse(await response.json());
+  return { userId: user.id, research: createResearch(createDb({ DB: d1 })) };
+}
+const result = {
+  summary: "A new tool release.", sources: ["https://example.com/release"],
+  findings: [{ title: "Tool v2", summary: "A new release.", reason: "Runs locally.", url: "https://example.com/release", eventKey: "tool-release", version: "2.0" }],
+};
+it("claims a run once and saves findings and one email together, deduplicating later runs", async () => {
+  const taskId = await create({ ...input, status: "active" });
+  const { research, userId } = await researcher();
+  await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+  const now = Date.now();
+  const runId = await research.start(userId, taskId, now);
+  const claims = await Promise.all([research.claim(runId), research.claim(runId)]);
+  expect(claims.filter(Boolean)).toHaveLength(1);
+  await research.complete(runId, claims.find(Boolean)!.lease, result, now + 1000);
+  expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(1);
+  expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(1);
+  const second = await research.start(userId, taskId, now + 11_000);
+  const claim = await research.claim(second);
+  await research.complete(second, claim!.lease, result, now + 12_000);
+  expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(1);
+  expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(1);
+  expect(await d1.prepare("SELECT outcome FROM run WHERE id = ?").bind(second).first("outcome")).toBe("unchanged");
+  const updated = await research.start(userId, taskId, now + 22_000);
+  const updatedClaim = await research.claim(updated);
+  await research.complete(updated, updatedClaim!.lease, { ...result, findings: [{ ...result.findings[0]!, version: "3.0" }] }, now + 23_000);
+  expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(2);
+});
+it("cancels old work after edits and pauses, and pauses a task after three failures", async () => {
+  const taskId = await create({ ...input, status: "active" });
+  const { research, userId } = await researcher();
+  const now = Date.now();
+  const id = await research.start(userId, taskId, now);
+  const claim = await research.claim(id);
+  const task = (await snapshot()).tasks[0]!;
+  await request(`/api/tasks/${taskId}`, "PUT", { ...task, title: "Edited" });
+  await research.complete(id, claim!.lease, result);
+  expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(0);
+  expect(await d1.prepare("SELECT status FROM run WHERE id = ?").bind(id).first("status")).toBe("cancelled");
+  for (let i = 1; i <= 3; i++) {
+    const next = await research.start(userId, taskId, now + i * 11_000);
+    const running = await research.claim(next);
+    await research.fail(next, running!.lease, "Source unavailable.");
+    await research.fail(next, running!.lease, "Duplicate failure.");
+  }
+  expect((await snapshot()).tasks[0]).toMatchObject({ status: "paused", failures: 3 });
+});
+it("keeps cooldown and daily usage on the server even when tasks are deleted", async () => {
+  const taskId = await create({ ...input, status: "active" });
+  const { research, userId } = await researcher();
+  const now = Date.now();
+  const id = await research.start(userId, taskId, now);
+  await expect(research.start(userId, taskId, now + 1)).rejects.toThrow("Wait 10 seconds");
+  const claim = await research.claim(id);
+  await research.complete(id, claim!.lease, { summary: "No matches.", sources: [], findings: [] });
+  await d1.prepare("UPDATE usage SET checks = 30 WHERE user_id = ?").bind(userId).run();
+  await request(`/api/tasks/${taskId}`, "DELETE");
+  const replacement = await create({ ...input, status: "active" });
+  await expect(research.start(userId, replacement, now + 11_000)).rejects.toThrow("Daily limit");
+  expect(await research.checks(userId, now)).toBe(30);
+});
+it("rolls back findings if the delivery outbox cannot be saved", async () => {
+  const taskId = await create({ ...input, status: "active" });
+  const { research, userId } = await researcher();
+  await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+  const id = await research.start(userId, taskId);
+  const claim = await research.claim(id);
+  await d1.prepare("CREATE TRIGGER test_delivery_failure BEFORE INSERT ON delivery BEGIN SELECT RAISE(ABORT, 'test_failure'); END;").run();
+  try { await expect(research.complete(id, claim!.lease, result)).rejects.toThrow(); }
+  finally { await d1.prepare("DROP TRIGGER test_delivery_failure").run(); }
+  expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(0);
+  expect(await d1.prepare("SELECT status FROM run WHERE id = ?").bind(id).first("status")).toBe("running");
+});
+it("never queues email for an unverified account and cancels pending delivery when paused", async () => {
+  const taskId = await create({ ...input, status: "active" });
+  const { research, userId } = await researcher();
+  const now = Date.now();
+  const id = await research.start(userId, taskId, now);
+  await research.complete(id, (await research.claim(id))!.lease, result);
+  expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(0);
+  await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+  const next = await research.start(userId, taskId, now + 11_000);
+  await research.complete(next, (await research.claim(next))!.lease, { ...result, findings: [{ ...result.findings[0]!, version: "3.0" }] });
+  const task = (await snapshot()).tasks[0]!;
+  await request(`/api/tasks/${taskId}`, "PUT", { ...task, status: "paused" });
+  expect(await d1.prepare("SELECT status FROM delivery").first("status")).toBe("cancelled");
 });
