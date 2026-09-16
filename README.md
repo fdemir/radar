@@ -37,14 +37,13 @@ Alchemy provisions the D1 database and applies migrations during `deploy`.
 pnpm run db:generate
 ```
 
-Then, run the development server:
+Start the local app without cloud credentials:
 
 ```bash
-pnpm run dev
+pnpm dev:local
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:5174](http://localhost:5174). The local API runs on port 3000. Migrations run automatically; accounts and the auth secret persist in the ignored `.cache/local` directory. `pnpm dev` remains available for Alchemy development.
 
 ## Authentication
 
@@ -133,7 +132,8 @@ radar/
 
 ## Available Scripts
 
-- `pnpm run dev`: Start all applications in development mode
+- `pnpm dev:local`: Start the web app and persistent local API without cloud credentials
+- `pnpm run dev`: Start applications through Alchemy
 - `pnpm run build`: Build all applications
 - `pnpm run dev:web`: Start only the web application
 - `pnpm run dev:server`: Start only the server

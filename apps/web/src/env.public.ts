@@ -2,5 +2,5 @@
 import type { PublicCoercedEnvSchema } from "./env";
 
 export const ENV = {
-  VITE_SERVER_URL: import.meta.env.VITE_SERVER_URL,
+  VITE_SERVER_URL: import.meta.env.VITE_SERVER_URL || (import.meta.env.DEV ? "http://localhost:3000" : undefined),
 } satisfies Pick<PublicCoercedEnvSchema, "VITE_SERVER_URL">;

@@ -7,7 +7,8 @@
     "start": "react-router-serve ./build/server/index.js",
     "check-types": "react-router typegen && tsc --noEmit",
     "dev:bare": "react-router dev",
-    "env:generate": "varlock codegen"
+    "env:generate": "varlock codegen",
+    "dev:local": "react-router dev --port 5174 --strictPort"
   },
   "dependencies": {
     "@radar/ui": "workspace:*",

@@ -11,7 +11,7 @@
     "build": "turbo run build",
     "check-types": "turbo run check-types",
     "dev:web": "turbo run dev:bare -F web --",
-    "dev:server": "turbo run dev:bare -F hono --",
+    "dev:server": "pnpm --filter server dev:local",
     "db:generate": "turbo run db:generate -F @radar/db --",
     "deploy": "turbo run deploy -F @radar/infra --",
     "destroy": "turbo run destroy -F @radar/infra --",
@@ -19,7 +19,8 @@
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
     "test": "turbo run test",
     "lint": "oxlint --deny-warnings apps packages",
-    "lint:fix": "oxlint --fix apps packages"
+    "lint:fix": "oxlint --fix apps packages",
+    "dev:local": "pnpm --parallel --filter server --filter web dev:local"
   },
   "dependencies": {
     "zod": "catalog:"

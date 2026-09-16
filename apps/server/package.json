@@ -7,7 +7,8 @@
     "check-types": "tsc --noEmit",
     "compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "env:generate": "varlock codegen",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:local": "node scripts/dev.mjs"
   },
   "dependencies": {
     "@radar/auth": "workspace:*",
@@ -22,6 +23,7 @@
     "@radar/config": "workspace:*",
     "@radar/infra": "workspace:*",
     "@types/node": "catalog:",
+    "esbuild": "0.28.2",
     "miniflare": "4.20260730.0",
     "tsdown": "^0.23.0",
     "typescript": "catalog:",
