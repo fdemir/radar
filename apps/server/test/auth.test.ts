@@ -29,6 +29,7 @@ beforeAll(async () => {
     compatibilityDate: "2026-07-01",
   });
   d1 = await runtime.getD1Database("DB");
+
   const migration = await readFile(
     new URL("../../../packages/db/src/migrations/0000_username_auth.sql", import.meta.url),
     "utf8",
@@ -102,6 +103,7 @@ describe("username accounts and sessions", () => {
     expect(aliceBody.user.username).toBe("alice");
     expect(alice.headers.get("set-cookie")).toContain("HttpOnly");
     expect(alice.headers.get("set-cookie")).toContain("SameSite=Lax");
+
     const stored = await d1
       .prepare("SELECT password FROM account WHERE user_id = ?")
       .bind(aliceBody.user.id)
@@ -115,6 +117,7 @@ describe("username accounts and sessions", () => {
       config.CORS_ORIGIN,
       createDb({ DB: d1 }),
     );
+
     const me = await request(`/api/me?userId=${bobBody.user.id}`, undefined, aliceCookie);
 
     expect(me.status).toBe(200);
@@ -122,6 +125,7 @@ describe("username accounts and sessions", () => {
     expect(await me.json()).toEqual({
       user: { id: aliceBody.user.id, username: "alice" },
     });
+
     const bobMe = await request("/api/me", undefined, cookies(bob));
 
     expect(await bobMe.json()).toEqual({
@@ -132,6 +136,7 @@ describe("username accounts and sessions", () => {
 
   it("signs in case-insensitively with a username, rejects email login and bad credentials", async () => {
     await register();
+
     const success = await request("/api/auth/sign-in/username", {
       username: "ALICE",
       password,
@@ -147,6 +152,7 @@ describe("username accounts and sessions", () => {
         })
       ).status,
     ).toBe(404);
+
     const wrongPassword = await request("/api/auth/sign-in/username", {
       username: "alice",
       password: "wrong-password",
@@ -178,6 +184,7 @@ describe("username accounts and sessions", () => {
 
   it("rejects duplicate usernames regardless of case and duplicate emails", async () => {
     await register();
+
     const duplicate = await request("/api/auth/sign-up/email", {
       username: "ALICE",
       name: "Other",
@@ -186,6 +193,7 @@ describe("username accounts and sessions", () => {
     });
 
     expect(duplicate.status).toBe(400);
+
     const duplicateEmail = await request("/api/auth/sign-up/email", {
       username: "other",
       name: "Other",
@@ -247,6 +255,7 @@ describe("username accounts and sessions", () => {
       production.CORS_ORIGIN,
       createDb({ DB: d1 }),
     );
+
     const response = await app.request(`${production.BETTER_AUTH_URL}/api/auth/sign-up/email`, {
       method: "POST",
       headers: {
@@ -263,6 +272,7 @@ describe("username accounts and sessions", () => {
     });
 
     expect(response.status).toBe(200);
+
     const cookie = response.headers.get("set-cookie");
 
     expect(cookie).toContain("Secure");
@@ -286,6 +296,7 @@ describe("username accounts and sessions", () => {
       config.CORS_ORIGIN,
       createDb({ DB: d1 }),
     );
+
     const blocked = await request("/api/auth/sign-in/username", {
       username: "unknown",
       password,
@@ -309,6 +320,7 @@ it("verifies email through a signed link and rejects a tampered link", async () 
     config.CORS_ORIGIN,
     db,
   );
+
   const cookie = cookies(await register());
   const response = await request(
     "/api/auth/send-verification-email",
@@ -317,6 +329,7 @@ it("verifies email through a signed link and rejects a tampered link", async () 
   );
 
   expect(response.status).toBe(200);
+
   const link = sent[0]!.match(/https?:\/\/\S+/)![0];
   const invalid = new URL(link);
 
@@ -327,6 +340,7 @@ it("verifies email through a signed link and rejects a tampered link", async () 
       .prepare("SELECT email_verified FROM user WHERE username = 'alice'")
       .first("email_verified"),
   ).toBe(0);
+
   const verified = await app.request(link);
 
   expect(verified.headers.get("Location")).toBe(`${config.CORS_ORIGIN}/settings`);
@@ -349,6 +363,7 @@ it("resets a password with a one-use emailed token and revokes existing sessions
     config.CORS_ORIGIN,
     db,
   );
+
   const cookie = cookies(await register());
 
   expect(
@@ -359,6 +374,7 @@ it("resets a password with a one-use emailed token and revokes existing sessions
       })
     ).status,
   ).toBe(200);
+
   const link = sent[0]!.match(/https?:\/\/\S+/)![0];
   const redirected = await app.request(link);
   const token = new URL(redirected.headers.get("Location")!).searchParams.get("token");

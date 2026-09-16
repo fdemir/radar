@@ -139,6 +139,7 @@ export function createWorkspace(db: Database) {
     },
     async update(userId: string, id: string, input: TaskInput) {
       await getTask(userId, id);
+
       const result = await limitGuard(() =>
         db
           .update(task)

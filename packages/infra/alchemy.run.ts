@@ -10,6 +10,7 @@ export const db = Cloudflare.D1.Database("database", {
 });
 
 export const researchQueue = Cloudflare.Queues.Queue("research-queue");
+
 const services = {
   OPENAI_API_KEY: Config.redacted("OPENAI_API_KEY"),
   OPENAI_BASE_URL: Config.string("OPENAI_BASE_URL"),
@@ -68,6 +69,7 @@ export default Alchemy.Stack(
       scriptName: worker.workerName,
       settings: { batchSize: 1, maxConcurrency: 2, maxRetries: 2, maxWaitTimeMs: 1000 },
     });
+
     const webWorker = yield* Cloudflare.Website.Vite("web", {
       rootDir: "../../apps/web",
       compatibility: {

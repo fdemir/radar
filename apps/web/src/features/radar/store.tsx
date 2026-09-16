@@ -85,6 +85,7 @@ export function WorkspaceProvider({
       );
 
       id = z.object({ id: z.string() }).parse(result).id;
+
       const saved = { ...task, id, revision: exists ? task.revision + 1 : 0, failures: 0 };
 
       setState((current) => ({

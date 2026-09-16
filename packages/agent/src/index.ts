@@ -18,6 +18,7 @@ export type AgentConfig = {
 export class ResearchError extends Error {}
 
 export class ResearchCancelled extends Error {}
+
 const sourceSchema = z.object({ url: z.string(), title: z.string(), content: z.string() });
 const graphState = new StateSchema({
   queries: z.array(z.string()).default([]),
@@ -147,6 +148,7 @@ export function createAgent(config: AgentConfig) {
 
                 url.searchParams.set("query", query);
                 url.searchParams.set("purpose", task.brief.slice(0, 2000));
+
                 const response = await fetch(url, {
                   headers: { "X-API-Key": config.TINYFISH_API_KEY },
                   signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),

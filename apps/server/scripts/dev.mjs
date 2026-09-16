@@ -10,6 +10,7 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const cache = resolve(root, ".cache/local");
 
 await mkdir(cache, { recursive: true });
+
 const secretPath = resolve(cache, "auth-secret");
 let secret;
 
@@ -95,6 +96,7 @@ try {
   const db = await runtime.getD1Database("DB", "api");
 
   await db.prepare("CREATE TABLE IF NOT EXISTS _radar_migrations (name TEXT PRIMARY KEY)").run();
+
   const directory = resolve(root, "packages/db/src/migrations");
 
   for (const file of (await readdir(directory)).filter((name) => name.endsWith(".sql")).sort()) {

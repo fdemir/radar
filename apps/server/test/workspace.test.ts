@@ -87,6 +87,7 @@ beforeAll(async () => {
     compatibilityDate: "2026-07-01",
   });
   d1 = await runtime.getD1Database("DB");
+
   const folder = new URL("../../../packages/db/src/migrations/", import.meta.url);
 
   for (const file of (await readdir(folder)).filter((file) => file.endsWith(".sql")).sort()) {
@@ -105,6 +106,7 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   await d1.batch(["user", "rate_limit"].map((table) => d1.prepare(`DELETE FROM ${table}`)));
+
   const db = createDb({ DB: d1 });
 
   app = createApp(createAuth(config, db), config.CORS_ORIGIN, db);
@@ -118,6 +120,7 @@ it("persists task edits and conversations across app instances, scoped to the se
   expect((await snapshot(bob)).tasks).toEqual([]);
   expect((await request(`/api/tasks/${id}`, "PUT", input, bob)).status).toBe(404);
   expect((await request(`/api/tasks/${id}`, "DELETE", undefined, bob)).status).toBe(404);
+
   const task = (await snapshot()).tasks[0]!;
 
   expect(task.messages[0]?.text).toBe("Only open source");
@@ -125,6 +128,7 @@ it("persists task edits and conversations across app instances, scoped to the se
     200,
   );
   expect((await request(`/api/tasks/${id}`, "PUT", task)).status).toBe(409);
+
   const db = createDb({ DB: d1 });
 
   app = createApp(createAuth(config, db), config.CORS_ORIGIN, db);
@@ -140,11 +144,13 @@ it("enforces the active task limit during concurrent creates and resumes", async
 
   expect(responses.filter((response) => response.status === 201)).toHaveLength(5);
   expect(responses.filter((response) => response.status === 409)).toHaveLength(3);
+
   const draft = await create();
 
   expect((await request(`/api/tasks/${draft}`, "PUT", { ...input, status: "active" })).status).toBe(
     409,
   );
+
   const active = (await snapshot()).tasks.find((task) => task.status === "active")!;
 
   expect(
@@ -231,6 +237,7 @@ it("claims a run once and saves findings and one email together, deduplicating l
   const { research, userId } = await researcher();
 
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+
   const now = Date.now();
   const runId = await research.start(userId, taskId, now);
   const claims = await Promise.all([research.claim(runId), research.claim(runId)]);
@@ -239,6 +246,7 @@ it("claims a run once and saves findings and one email together, deduplicating l
   await research.complete(runId, claims.find(Boolean)!.lease, result, now + 1000);
   expect(await d1.prepare("SELECT count(*) AS n FROM finding").first("n")).toBe(1);
   expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(1);
+
   const second = await research.start(userId, taskId, now + 11_000);
   const claim = await research.claim(second);
 
@@ -248,6 +256,7 @@ it("claims a run once and saves findings and one email together, deduplicating l
   expect(
     await d1.prepare("SELECT outcome FROM run WHERE id = ?").bind(second).first("outcome"),
   ).toBe("unchanged");
+
   const updated = await research.start(userId, taskId, now + 22_000);
   const updatedClaim = await research.claim(updated);
 
@@ -291,11 +300,13 @@ it("keeps cooldown and daily usage on the server even when tasks are deleted", a
   const id = await research.start(userId, taskId, now);
 
   await expect(research.start(userId, taskId, now + 1)).rejects.toThrow("Wait 10 seconds");
+
   const claim = await research.claim(id);
 
   await research.complete(id, claim!.lease, { summary: "No matches.", sources: [], findings: [] });
   await d1.prepare("UPDATE usage SET checks = 30 WHERE user_id = ?").bind(userId).run();
   await request(`/api/tasks/${taskId}`, "DELETE");
+
   const replacement = await create({ ...input, status: "active" });
 
   await expect(research.start(userId, replacement, now + 11_000)).rejects.toThrow("Daily limit");
@@ -306,6 +317,7 @@ it("rolls back findings if the delivery outbox cannot be saved", async () => {
   const { research, userId } = await researcher();
 
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+
   const id = await research.start(userId, taskId);
   const claim = await research.claim(id);
 
@@ -335,12 +347,14 @@ it("never queues email for an unverified account and cancels pending delivery wh
   await research.complete(id, (await research.claim(id))!.lease, result);
   expect(await d1.prepare("SELECT count(*) AS n FROM delivery").first("n")).toBe(0);
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+
   const next = await research.start(userId, taskId, now + 11_000);
 
   await research.complete(next, (await research.claim(next))!.lease, {
     ...result,
     findings: [{ ...result.findings[0]!, version: "3.0" }],
   });
+
   const task = (await snapshot()).tasks[0]!;
 
   await request(`/api/tasks/${taskId}`, "PUT", { ...task, status: "paused" });
@@ -352,9 +366,11 @@ it("reschedules active tasks when the timezone changes and cancels mail on the f
   const { research, userId } = await researcher();
 
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+
   const id = await research.start(userId, taskId);
 
   await research.complete(id, (await research.claim(id))!.lease, result);
+
   const before = (await snapshot()).tasks[0]!.nextRunAt;
 
   expect(
@@ -365,6 +381,7 @@ it("reschedules active tasks when the timezone changes and cancels mail on the f
       })
     ).status,
   ).toBe(204);
+
   const after = (await snapshot()).tasks[0]!.nextRunAt;
 
   expect(after).not.toBe(before);
@@ -385,10 +402,12 @@ it("keeps findings and notification updates private to their owner", async () =>
   const { research, userId } = await researcher();
 
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();
+
   const id = await research.start(userId, taskId);
 
   await research.complete(id, (await research.claim(id))!.lease, result);
   await d1.prepare("UPDATE delivery SET status = 'sent', sent_at = ?").bind(Date.now()).run();
+
   const own = await snapshot();
   const foreign = await snapshot(bob);
 
@@ -398,6 +417,7 @@ it("keeps findings and notification updates private to their owner", async () =>
   expect(foreign.findings).toEqual([]);
   expect(foreign.runs).toEqual([]);
   expect(foreign.notices).toEqual([]);
+
   const finding = own.findings[0]!;
 
   expect((await request(`/api/findings/${finding.id}`, "PATCH", { saved: true }, bob)).status).toBe(

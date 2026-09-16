@@ -80,6 +80,7 @@ beforeAll(async () => {
         body,
         key: request.headers.get("Idempotency-Key"),
       });
+
       const json = (value: unknown, status = 200) =>
         new WorkerResponse(JSON.stringify(value), {
           status,
@@ -164,6 +165,7 @@ beforeAll(async () => {
   });
   d1 = await runtime.getD1Database("DB");
   worker = await runtime.getWorker();
+
   const folder = new URL("../../../packages/db/src/migrations/", import.meta.url);
 
   for (const file of (await readdir(folder)).filter((name) => name.endsWith(".sql")).sort()) {
@@ -259,6 +261,7 @@ it("stops work when a task is paused during source reading", async () => {
 });
 it("records a provider failure once even when the queue repeats the job", async () => {
   mode = "search-error";
+
   const id = await research.start("owner", taskId);
 
   await consume(id);

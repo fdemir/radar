@@ -35,6 +35,7 @@ export function publicUrl(value: string): string | null {
       return null;
 
     url.hash = "";
+
     const tracking = [...url.searchParams.keys()].filter((key) =>
       /^(utm_|fbclid$|gclid$)/i.test(key),
     );

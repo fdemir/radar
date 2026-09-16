@@ -21,6 +21,7 @@ async function deliver(env: WorkerEnv) {
     .prepare("UPDATE delivery SET status = 'pending' WHERE status = 'sending' AND next_attempt < ?")
     .bind(now - 120_000)
     .run();
+
   const due = await db
     .prepare(
       `SELECT d.id, d.target, d.run_id AS runId, d.task_id AS taskId, t.title
