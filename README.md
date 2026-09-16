@@ -139,3 +139,7 @@ radar/
 - `pnpm run dev:server`: Start only the server
 - `pnpm run check-types`: Check TypeScript types across all apps
 - `pnpm run db:generate`: Generate database client/types
+
+## Linting
+
+Run `pnpm lint` to check all apps and packages with Oxlint (TypeScript and React rules). Run `pnpm lint:fix` to apply safe fixes. Generated files and build outputs are excluded.

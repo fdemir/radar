@@ -1,5 +1,3 @@
-import type { Route } from "./+types/_index";
-
 const TITLE_TEXT = `
  ██████╗ ███████╗████████╗████████╗███████╗██████╗
  ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
@@ -16,7 +14,7 @@ const TITLE_TEXT = `
     ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
  `;
 
-export function meta({}: Route.MetaArgs) {
+export function meta() {
   return [{ title: "radar" }, { name: "description", content: "radar is a web application" }];
 }
 

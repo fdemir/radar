@@ -17,7 +17,9 @@
     "destroy": "turbo run destroy -F @radar/infra --",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "lint": "oxlint --deny-warnings apps packages",
+    "lint:fix": "oxlint --fix apps packages"
   },
   "dependencies": {
     "zod": "catalog:"
@@ -26,6 +28,7 @@
     "@cloudflare/workers-types": "catalog:",
     "@radar/config": "workspace:*",
     "@types/node": "catalog:",
+    "oxlint": "^1.83.0",
     "turbo": "^2.10.12",
     "typescript": "catalog:",
     "varlock": "catalog:"

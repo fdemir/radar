@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {},
+  "env": {
+    "builtin": true
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/.react-router/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/src/env.ts",
+    "**/.alchemy/**",
+    "**/.cache/**"
+  ]
+}
