@@ -5,9 +5,12 @@ import * as Effect from "effect/Effect";
 import * as Redacted from "effect/Redacted";
 import "varlock/auto-load";
 
-export const db = Cloudflare.D1.Database("database", {
-  migrations: "../../packages/db/src/migrations",
-});
+import { prepareMigrations } from "./migrations";
+
+export const db = Cloudflare.D1.Database(
+  "database",
+  Effect.promise(prepareMigrations).pipe(Effect.map((migrations) => ({ migrations }))),
+);
 
 export const researchQueue = Cloudflare.Queues.Queue("research-queue");
 
@@ -60,6 +63,7 @@ export default Alchemy.Stack(
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
+    const stage = yield* Alchemy.Stage;
     const serverWorker = yield* server;
     const worker = yield* researchWorker;
     const queue = yield* researchQueue;
@@ -71,7 +75,13 @@ export default Alchemy.Stack(
     });
 
     const webWorker = yield* Cloudflare.Website.Vite("web", {
+      name: `radar-${stage}`,
       rootDir: "../../apps/web",
+      main: "workers/app.ts",
+      memo: {
+        include: ["**/*", "../../packages/ui/src/**", "../../packages/core/src/**"],
+        lockfile: true,
+      },
       compatibility: {
         flags: ["nodejs_compat"],
       },

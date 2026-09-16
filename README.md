@@ -87,13 +87,17 @@ Generate migrations after changing the database schema with `pnpm db:generate`. 
 
 ## Cloudflare deployment
 
-Configure your Cloudflare profile with `cd packages/infra && pnpm exec alchemy profile edit`. Set a persistent `BETTER_AUTH_SECRET` of at least 32 characters and the exact web origin in `CORS_ORIGIN` in `apps/server/.env`, along with the service values above.
+Configure your Cloudflare profile with `cd packages/infra && pnpm exec alchemy profile edit`. Keep production settings in the ignored `packages/infra/.env.production.local` file, separate from local development. Set `NODE_ENV=production`, a separate persistent `BETTER_AUTH_SECRET` of at least 32 characters, and the service values above.
+
+The web worker is named `radar-<stage>`. For the production stage, set `CORS_ORIGIN=https://radar-production.<account-subdomain>.workers.dev`, using your Cloudflare account's Workers subdomain.
 
 ```sh
 cd packages/infra
-pnpm exec alchemy deploy --stage production
+pnpm exec alchemy deploy --stage production --env-file .env.production.local
 ```
 
-Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. If using the generated web URL, update `CORS_ORIGIN` after the first deploy and deploy again. Use web and API domains on the same site, such as `app.example.com` and `api.example.com`, to avoid third-party cookie restrictions.
+Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. Its first deployment also creates a shared state store in the Cloudflare account. Local accounts and tasks are not copied to production. The web app and API use the same account's Workers subdomain so sign-in cookies stay on the same site.
+
+Deployments copy the SQL files listed in the Drizzle journal into an ignored `.alchemy/migrations` folder. Alchemy applies these unchanged files and tracks production migrations. Keep generating schema changes with `pnpm db:generate`.
 
 Cloud deployment must be verified with your Cloudflare account. Local checks do not verify cloud credentials, domains, provider quotas, or live email delivery.
