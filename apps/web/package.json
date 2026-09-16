@@ -1,0 +1,40 @@
+{
+  "name": "web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "react-router build",
+    "start": "react-router-serve ./build/server/index.js",
+    "check-types": "react-router typegen && tsc --noEmit",
+    "dev:bare": "react-router dev",
+    "env:generate": "varlock codegen"
+  },
+  "dependencies": {
+    "@radar/ui": "workspace:*",
+    "@react-router/fs-routes": "^8.3.1",
+    "@react-router/node": "^8.3.1",
+    "@react-router/serve": "^8.3.1",
+    "@tanstack/react-form": "^1.33.5",
+    "better-auth": "catalog:",
+    "isbot": "^5.2.2",
+    "lucide-react": "catalog:",
+    "next-themes": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router": "^8.3.1",
+    "sonner": "catalog:",
+    "varlock": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@radar/config": "workspace:*",
+    "@react-router/dev": "^8.3.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "^8.2.2"
+  }
+}

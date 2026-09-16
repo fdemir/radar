@@ -1,0 +1,3 @@
+{
+  "extends": "@radar/config/tsconfig.base.json"
+}
