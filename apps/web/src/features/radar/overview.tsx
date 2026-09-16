@@ -1,8 +1,21 @@
+import { cn } from "@radar/ui/lib/utils";
 import { useState } from "react";
-import { ArrowRight, Clock3, Plus, Search } from "lucide-react";
+import { ArrowRight, Clock3, Plus } from "lucide-react";
 import { Link } from "react-router";
+import { Badge } from "@radar/ui/components/badge";
+import { Button, buttonVariants } from "@radar/ui/components/button";
+import { Card, CardContent, CardFooter } from "@radar/ui/components/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radar/ui/components/tabs";
 import { useWorkspace } from "./context";
-import { CategoryIcon, Empty, FindingCard, FindingModal, Status } from "./components";
+import {
+  CategoryIcon,
+  Empty,
+  FindingCard,
+  FindingModal,
+  SearchField,
+  Status,
+  WorkspacePage,
+} from "./components";
 import { formatDate, type Finding } from "./model";
 
 export default function Overview() {
@@ -11,129 +24,146 @@ export default function Overview() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Finding | null>(null);
   const tasks = state.tasks.filter(
-    (t) =>
-      (filter === "All" || t.status === filter.toLowerCase()) &&
-      `${t.title} ${t.brief}`.toLowerCase().includes(query.toLowerCase()),
+    (task) =>
+      (filter === "All" || task.status === filter.toLowerCase()) &&
+      `${task.title} ${task.brief}`.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (
     <>
-      <section className="sky workspace-hero">
-        <div className="container">
-          <h1>Your tasks</h1>
-          <p>
-            {state.tasks.filter((t) => t.status === "active").length} active <span>·</span>{" "}
-            {state.findings.filter((f) => !f.read).length} unread
-          </p>
-          <Link className="button primary" to="/tasks/new">
-            <Plus size={17} />
-            New task
-          </Link>
-        </div>
+      <section className="bg-sky px-5 py-13 text-center">
+        <h1 className="text-[46px] leading-none tracking-[-0.055em] text-white sm:text-[64px]">
+          Your tasks
+        </h1>
+        <p className="mt-4 mb-6 text-[#172f46]">
+          {state.tasks.filter((task) => task.status === "active").length} active{" "}
+          <span className="mx-2">·</span> {state.findings.filter((finding) => !finding.read).length}{" "}
+          unread
+        </p>
+        <Link to="/tasks/new" className={cn(buttonVariants())}>
+          <Plus />
+          New task
+        </Link>
       </section>
-      <main className="container workspace-main">
-        <div className="toolbar">
-          <div className="tabs">
-            {["All", "Active", "Paused", "Draft"].map((f) => (
-              <button
-                key={f}
-                className={filter === f ? "selected" : ""}
-                aria-pressed={filter === f}
-                onClick={() => setFilter(f)}
-              >
-                {f}
-                {f === "All" && <span>{state.tasks.length}</span>}
-              </button>
-            ))}
+      <WorkspacePage className="min-h-0 pt-10">
+        <Tabs value={filter} onValueChange={(value) => setFilter(String(value))}>
+          <div className="flex flex-wrap items-center justify-between gap-5">
+            <TabsList aria-label="Task status" className="w-full sm:w-fit">
+              {["All", "Active", "Paused", "Draft"].map((status) => (
+                <TabsTrigger key={status} value={status}>
+                  {status}
+                  {status === "All" && (
+                    <span className="text-[11px] text-muted-foreground">{state.tasks.length}</span>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <SearchField label="Search tasks" value={query} onChange={setQuery} />
           </div>
-          <label className="search">
-            <Search size={17} />
-            <input
-              aria-label="Search tasks"
-              placeholder="Search tasks"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="task-grid">
-          {tasks.map((task) => {
-            const latest = state.runs.find((r) => r.taskId === task.id);
-            const count = state.findings.filter((f) => f.taskId === task.id && !f.read).length;
-            const path = task.status === "draft" ? `/tasks/${task.id}/edit` : `/tasks/${task.id}`;
+          <TabsContent value={filter}>
+            <div className="grid gap-6 md:grid-cols-2">
+              {tasks.map((task) => {
+                const latest = state.runs.find((run) => run.taskId === task.id);
+                const count = state.findings.filter(
+                  (finding) => finding.taskId === task.id && !finding.read,
+                ).length;
+                const path =
+                  task.status === "draft" ? `/tasks/${task.id}/edit` : `/tasks/${task.id}`;
 
-            return (
-              <article className="task-card card" key={task.id}>
-                <div className="row between">
-                  <span className="category">
-                    <CategoryIcon category={task.category} />
-                    {task.category}
-                  </span>
-                  <Status status={latest?.status === "running" ? "running" : task.status} />
-                </div>
-                <Link to={path} className="task-link">
-                  <h2>{task.title}</h2>
-                  <p>{task.brief}</p>
-                </Link>
-                <div className="schedule">
-                  <Clock3 size={15} />
-                  <span>
-                    {task.frequency}
-                    {task.frequency !== "Hourly" && ` · ${task.time}`}
-                  </span>
-                  {count > 0 && <span className="finding-count">{count} new</span>}
-                </div>
-                <div className="task-footer">
-                  <span>
-                    {latest ? `Last check: ${formatDate(latest.started)}` : "Not checked yet"}
-                    {task.status === "active" && task.nextRunAt && (
-                      <>
-                        <br />
-                        Next: {formatDate(task.nextRunAt, state.preferences.timezone)}
-                      </>
-                    )}
-                  </span>
-                  <div className="row">
-                    {task.status !== "draft" && (
-                      <button className="text-button" onClick={() => toggle(task.id)}>
-                        {task.status === "active" ? "Pause" : "Resume"}
-                      </button>
-                    )}
-                    <Link to={path} className="circle-button" aria-label={`Open ${task.title}`}>
-                      <ArrowRight size={18} />
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-        {!tasks.length && (
-          <Empty
-            action={
-              <Link to="/tasks/new" className="button primary">
-                New task
-              </Link>
-            }
-          >
-            No tasks found.
-          </Empty>
-        )}
-        <section className="recent">
-          <div className="section-row">
-            <h2>Latest findings</h2>
-            <Link className="text-button" to="/discoveries">
-              View all <ArrowRight size={16} />
+                return (
+                  <Card
+                    key={task.id}
+                    className="gap-0 pt-8 [--card-spacing:--spacing(6)] lg:[--card-spacing:--spacing(9)]"
+                  >
+                    <CardContent className="flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <Badge variant="outline" className="font-normal text-muted-foreground">
+                          <CategoryIcon category={task.category} />
+                          {task.category}
+                        </Badge>
+                        <Status status={latest?.status === "running" ? "running" : task.status} />
+                      </div>
+                      <Link to={path} className="group my-6 block">
+                        <h2 className="text-[26px] group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4">
+                          {task.title}
+                        </h2>
+                        <p className="mt-2.5 min-h-12 leading-relaxed [overflow-wrap:anywhere]">
+                          {task.brief}
+                        </p>
+                      </Link>
+                      <div className="flex items-center gap-2 pb-6 text-xs text-muted-foreground">
+                        <Clock3 size={15} className="text-sky-accent" />
+                        <span>
+                          {task.frequency}
+                          {task.frequency !== "Hourly" && ` · ${task.time}`}
+                        </span>
+                        {count > 0 && (
+                          <span className="ml-auto font-medium text-foreground">{count} new</span>
+                        )}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="mx-(--card-spacing) justify-between gap-3 px-0 py-4">
+                      <span className="text-[11px] text-muted-foreground">
+                        {latest ? `Last check: ${formatDate(latest.started)}` : "Not checked yet"}
+                        {task.status === "active" && task.nextRunAt && (
+                          <>
+                            <br />
+                            Next: {formatDate(task.nextRunAt, state.preferences.timezone)}
+                          </>
+                        )}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        {task.status !== "draft" && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="text-muted-foreground"
+                            onClick={() => toggle(task.id)}
+                          >
+                            {task.status === "active" ? "Pause" : "Resume"}
+                          </Button>
+                        )}
+                        <Link
+                          to={path}
+                          aria-label={`Open ${task.title}`}
+                          className={cn(buttonVariants({ variant: "outline", size: "icon" }))}
+                        >
+                          <ArrowRight />
+                        </Link>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+            {!tasks.length && (
+              <Empty
+                action={
+                  <Link to="/tasks/new" className={cn(buttonVariants())}>
+                    New task
+                  </Link>
+                }
+              >
+                No tasks found.
+              </Empty>
+            )}
+          </TabsContent>
+        </Tabs>
+        <section className="mt-16">
+          <div className="mb-6 flex items-center justify-between gap-4">
+            <h2 className="text-2xl">Latest findings</h2>
+            <Link to="/discoveries" className={cn(buttonVariants({ variant: "link", size: "sm" }))}>
+              View all <ArrowRight />
             </Link>
           </div>
-          <div className="finding-grid">
-            {state.findings.slice(0, 3).map((f) => (
-              <FindingCard key={f.id} item={f} open={setSelected} />
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {state.findings.slice(0, 3).map((finding) => (
+              <FindingCard key={finding.id} item={finding} open={setSelected} />
             ))}
           </div>
           {!state.findings.length && <Empty>No findings yet.</Empty>}
         </section>
-      </main>
+      </WorkspacePage>
       {selected && <FindingModal item={selected} close={() => setSelected(null)} />}
     </>
   );

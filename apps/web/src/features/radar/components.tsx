@@ -1,13 +1,30 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { ArrowUpRight, Bookmark, Code2, Compass, Music2, Plane, Radar, X } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowUpRight, Bookmark, Code2, Compass, Music2, Plane, Radar, Search } from "lucide-react";
 import { Link } from "react-router";
+import { Button, buttonVariants } from "@radar/ui/components/button";
+import { Card } from "@radar/ui/components/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@radar/ui/components/dialog";
+import {
+  Empty as EmptyState,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyDescription,
+} from "@radar/ui/components/empty";
+import { Input } from "@radar/ui/components/input";
+import { cn } from "@radar/ui/lib/utils";
 import { formatDate, type Category, type Finding, type Task } from "./model";
 import { useWorkspace } from "./context";
 
 export function Brand() {
   return (
-    <span className="brand">
-      <Radar strokeWidth={1.6} size={26} />
+    <span className="inline-flex items-center gap-2 font-display text-[27px] font-bold tracking-[-0.06em]">
+      <Radar strokeWidth={1.6} size={26} className="text-sky-accent" />
       radar
     </span>
   );
@@ -23,7 +40,26 @@ export function CategoryIcon({ category }: { category: Category }) {
           ? Plane
           : Compass;
 
-  return <Icon size={20} strokeWidth={1.6} className="blue-icon" />;
+  return <Icon size={20} strokeWidth={1.6} className="shrink-0 text-sky-accent" />;
+}
+
+export function WorkspacePage({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <main
+      className={cn(
+        "mx-auto min-h-[calc(100svh-180px)] w-[calc(100%-36px)] max-w-[1200px] py-12 pb-16 md:w-[calc(100%-56px)] lg:w-[calc(100%-96px)]",
+        className,
+      )}
+    >
+      {children}
+    </main>
+  );
 }
 
 export function PageTitle({
@@ -36,14 +72,23 @@ export function PageTitle({
   back?: string;
 }) {
   return (
-    <div className="page-title">
+    <div className="mb-9">
       {back && (
-        <Link className="back" to={back}>
+        <Link
+          to={back}
+          className={cn(
+            buttonVariants({
+              variant: "link",
+              size: "sm",
+              className: "mb-6 h-auto p-0 text-muted-foreground",
+            }),
+          )}
+        >
           ← Back
         </Link>
       )}
-      <div>
-        <h1>{title}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <h1 className="min-w-0 [overflow-wrap:anywhere]">{title}</h1>
         {action}
       </div>
     </div>
@@ -52,8 +97,14 @@ export function PageTitle({
 
 export function Status({ status }: { status: Task["status"] | "running" }) {
   return (
-    <span className={`status ${status}`}>
-      <span />
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span
+        className={cn(
+          "size-1.5 rounded-full bg-muted-foreground",
+          (status === "active" || status === "running") && "bg-sky-accent",
+          status === "draft" && "border border-muted-foreground bg-transparent",
+        )}
+      />
       {{ active: "Active", paused: "Paused", draft: "Draft", running: "Checking" }[status]}
     </span>
   );
@@ -61,118 +112,139 @@ export function Status({ status }: { status: Task["status"] | "running" }) {
 
 export function Empty({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="empty">
-      <Compass size={26} strokeWidth={1.3} />
-      <p>{children}</p>
+    <EmptyState>
+      <EmptyHeader>
+        <EmptyMedia>
+          <Compass size={26} strokeWidth={1.3} className="text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyDescription>{children}</EmptyDescription>
+      </EmptyHeader>
       {action}
-    </div>
+    </EmptyState>
   );
 }
 
 export function Modal({
   title,
+  description,
   children,
   close,
 }: {
   title: string;
+  description?: ReactNode;
   children: ReactNode;
   close: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
-
   return (
-    <dialog
-      ref={ref}
-      className="modal"
-      onCancel={(e) => {
-        e.preventDefault();
-        close();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) close();
       }}
-      aria-label={title}
     >
-      <div className="modal-heading">
-        <h2>{title}</h2>
-        <button className="icon-button" aria-label="Close dialog" onClick={close}>
-          <X size={20} />
-        </button>
-      </div>
-      {children}
-    </dialog>
+      <DialogContent>
+        <DialogHeader className="gap-4">
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-export function Toggle({
+export function SearchField({
   label,
-  checked,
-  change,
-  disabled,
+  value,
+  onChange,
 }: {
   label: string;
-  checked: boolean;
-  change: (checked: boolean) => void;
-  disabled?: boolean;
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      className={`toggle ${checked ? "checked" : ""}`}
-      onClick={() => change(!checked)}
-    >
-      <span />
-    </button>
+    <div className="relative w-full sm:w-60">
+      <Search
+        size={17}
+        className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground"
+      />
+      <Input
+        className="h-11 rounded-full pl-11 text-[13px]"
+        aria-label={label}
+        placeholder={label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
   );
+}
+
+export function TaskMessages({ messages }: { messages: Task["messages"] }) {
+  return messages.map((message, index) => (
+    <div
+      key={index}
+      className={cn(
+        "mb-6",
+        message.role === "user" ? "ml-7 rounded-xl bg-muted px-5 py-4" : "pr-7",
+      )}
+    >
+      <span className="mb-2 block text-[11px] text-muted-foreground">
+        {message.role === "user" ? "You" : "Radar"}
+      </span>
+      <p className="leading-relaxed whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
+        {message.text}
+      </p>
+    </div>
+  ));
 }
 
 export function FindingCard({ item, open }: { item: Finding; open: (finding: Finding) => void }) {
   const { finding } = useWorkspace();
 
+  function view() {
+    finding(item.id, { read: true });
+    open(item);
+  }
+
   return (
-    <article className="finding-card card">
-      <div className="row between">
-        <span className="source">
+    <Card className="gap-0 p-6">
+      <div className="flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
           <CategoryIcon category={item.category} />
           {item.source}
         </span>
-        <button
-          className="icon-button"
+        <Button
+          variant="ghost"
+          size="icon"
           aria-label={`${item.saved ? "Unsave" : "Save"} ${item.title}`}
           aria-pressed={item.saved}
           onClick={() => finding(item.id, { saved: !item.saved })}
         >
-          <Bookmark size={18} fill={item.saved ? "currentColor" : "none"} />
-        </button>
+          <Bookmark fill={item.saved ? "currentColor" : "none"} />
+        </Button>
       </div>
-      <button
-        className="finding-open"
-        onClick={() => {
-          finding(item.id, { read: true });
-          open(item);
-        }}
-      >
-        <h3>{item.title}</h3>
-        <p>{item.summary}</p>
-      </button>
-      <div className="row between card-bottom">
-        <time dateTime={item.date}>{formatDate(item.date)}</time>
-        <button
-          className="text-button"
-          onClick={() => {
-            finding(item.id, { read: true });
-            open(item);
-          }}
-        >
-          {!item.read && <i className="unread-dot" />}View <ArrowUpRight size={15} />
-        </button>
+      <div className="flex-1 py-6">
+        <h3>
+          <Button
+            variant="link"
+            onClick={view}
+            className="h-auto w-full justify-start p-0 text-left text-xl leading-snug font-semibold tracking-tight whitespace-normal"
+          >
+            {item.title}
+          </Button>
+        </h3>
+        <p className="mt-3 text-[13px] leading-relaxed">{item.summary}</p>
       </div>
-    </article>
+      <div className="flex items-center justify-between gap-3 border-t pt-3.5">
+        <time className="text-[11px] text-muted-foreground" dateTime={item.date}>
+          {formatDate(item.date)}
+        </time>
+        <Button variant="link" size="sm" onClick={view}>
+          {!item.read && <span className="size-1.5 rounded-full bg-sky-accent" />}View{" "}
+          <ArrowUpRight />
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -181,25 +253,21 @@ export function FindingModal({ item, close }: { item: Finding; close: () => void
   const current = state.findings.find((f) => f.id === item.id) ?? item;
 
   return (
-    <Modal title={item.title} close={close}>
-      <p>{item.summary}</p>
-      <div className="inset">
-        <h3>Why it matches</h3>
+    <Modal title={item.title} description={item.summary} close={close}>
+      <div className="space-y-2 rounded-xl bg-muted p-5">
+        <h3 className="text-sm">Why it matches</h3>
         <p>{item.reason}</p>
       </div>
-      <div className="modal-actions">
-        <a className="button primary" href={item.url} target="_blank" rel="noreferrer">
-          Open source <ArrowUpRight size={16} />
+      <div className="flex flex-wrap gap-3">
+        <a href={item.url} target="_blank" rel="noreferrer" className={cn(buttonVariants())}>
+          Open source <ArrowUpRight />
         </a>
-        <button
-          className="button secondary"
-          onClick={() => finding(item.id, { saved: !current.saved })}
-        >
-          <Bookmark size={16} fill={current.saved ? "currentColor" : "none"} />
+        <Button variant="outline" onClick={() => finding(item.id, { saved: !current.saved })}>
+          <Bookmark fill={current.saved ? "currentColor" : "none"} />
           {current.saved ? "Saved" : "Save"}
-        </button>
+        </Button>
       </div>
-      <p className="caption">{formatDate(item.date)}</p>
+      <p className="text-xs">{formatDate(item.date)}</p>
     </Modal>
   );
 }

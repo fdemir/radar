@@ -65,9 +65,9 @@ export default function Tasks() {
     return (
       <div className="mx-auto max-w-md p-6" role="alert">
         <p>Unable to check your session.</p>
-        <button className="mt-2 underline" onClick={() => refetch()}>
+        <Button variant="link" className="mt-2 px-0" onClick={() => refetch()}>
           Try again
-        </button>
+        </Button>
       </div>
     );
 
@@ -104,7 +104,7 @@ function WorkspaceLayout() {
     <>
       <Header unread={state.notices.filter((n) => !n.read).length} />
       <Outlet />
-      <footer className="workspace-footer container">
+      <footer className="mx-auto flex w-[calc(100%-36px)] max-w-[1200px] items-center justify-between border-t py-7 text-xs text-muted-foreground md:w-[calc(100%-56px)] lg:w-[calc(100%-96px)]">
         <span>Radar</span>
       </footer>
     </>

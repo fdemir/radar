@@ -1,3 +1,5 @@
+import AuthLayout from "@/components/auth-layout";
+import { Button } from "@radar/ui/components/button";
 import { useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
 
@@ -18,9 +20,9 @@ export default function Login() {
     return (
       <div className="mx-auto max-w-md p-6" role="alert">
         <p>Unable to check your session.</p>
-        <button className="mt-2 underline" onClick={() => refetch()}>
+        <Button variant="link" className="mt-2 px-0" onClick={() => refetch()}>
           Try again
-        </button>
+        </Button>
       </div>
     );
 
@@ -33,15 +35,12 @@ export default function Login() {
     );
 
   return (
-    <main className="auth-page">
-      <div className="auth-sky sky" />
-      <section className="card auth-card">
-        {showSignIn ? (
-          <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
-        ) : (
-          <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
-        )}
-      </section>
-    </main>
+    <AuthLayout>
+      {showSignIn ? (
+        <SignInForm onSwitchToSignUp={() => setShowSignIn(false)} />
+      ) : (
+        <SignUpForm onSwitchToSignIn={() => setShowSignIn(true)} />
+      )}
+    </AuthLayout>
   );
 }

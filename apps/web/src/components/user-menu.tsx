@@ -1,4 +1,5 @@
-import { Button } from "@radar/ui/components/button";
+import { cn } from "@radar/ui/lib/utils";
+import { Button, buttonVariants } from "@radar/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,9 +27,9 @@ export default function UserMenu() {
 
   if (!session) {
     return (
-      <Button variant="outline" nativeButton={false} render={<Link to="/login" />}>
+      <Link to="/login" className={cn(buttonVariants({ variant: "outline" }))}>
         Sign In
-      </Button>
+      </Link>
     );
   }
 

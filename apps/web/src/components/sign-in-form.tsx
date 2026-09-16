@@ -1,4 +1,5 @@
-import { Button } from "@radar/ui/components/button";
+import { cn } from "@radar/ui/lib/utils";
+import { Button, buttonVariants } from "@radar/ui/components/button";
 import { Input } from "@radar/ui/components/input";
 import { Label } from "@radar/ui/components/label";
 import { useForm } from "@tanstack/react-form";
@@ -47,8 +48,8 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
   });
 
   return (
-    <div className="mx-auto w-full mt-10 max-w-md p-6">
-      <h1 className="mb-6 text-center text-3xl font-bold">Welcome Back</h1>
+    <div className="w-full">
+      <h1 className="mb-7 text-center text-[28px] font-semibold">Welcome Back</h1>
 
       {submitError && (
         <p role="alert" className="mb-4 text-sm text-destructive">
@@ -85,7 +86,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                 />
                 <div id={`${field.name}-errors`} aria-live="polite">
                   {field.state.meta.errors.map((error) => (
-                    <p key={error?.message} className="text-red-500">
+                    <p key={error?.message} className="text-sm text-destructive">
                       {error?.message}
                     </p>
                   ))}
@@ -114,7 +115,7 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
                 />
                 <div id={`${field.name}-errors`} aria-live="polite">
                   {field.state.meta.errors.map((error) => (
-                    <p key={error?.message} className="text-red-500">
+                    <p key={error?.message} className="text-sm text-destructive">
                       {error?.message}
                     </p>
                   ))}
@@ -138,11 +139,11 @@ export default function SignInForm({ onSwitchToSignUp }: { onSwitchToSignUp: () 
         </form.Subscribe>
       </form>
 
-      <div className="mt-4 text-center">
-        <Link className="text-button" to="/forgot-password">
+      <div className="mt-4 flex flex-col items-center gap-1">
+        <Link to="/forgot-password" className={cn(buttonVariants({ variant: "link", size: "sm" }))}>
           Forgot password?
         </Link>
-        <Button variant="link" onClick={onSwitchToSignUp} className="">
+        <Button variant="link" onClick={onSwitchToSignUp}>
           Need an account? Sign Up
         </Button>
       </div>

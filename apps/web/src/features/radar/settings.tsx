@@ -1,10 +1,17 @@
+import { Button } from "@radar/ui/components/button";
+import { Card } from "@radar/ui/components/card";
+import { Input } from "@radar/ui/components/input";
+import { Label } from "@radar/ui/components/label";
+import { NativeSelect, NativeSelectOption } from "@radar/ui/components/native-select";
+import { Progress } from "@radar/ui/components/progress";
+import { Switch } from "@radar/ui/components/switch";
 import { useState } from "react";
 import { Check, LogOut, Mail } from "lucide-react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { useWorkspace } from "./context";
-import { PageTitle, Toggle } from "./components";
+import { PageTitle, WorkspacePage } from "./components";
 import type { Preferences, PreferencesInput } from "@radar/core";
 
 export default function Settings() {
@@ -49,9 +56,9 @@ export default function Settings() {
   }
 
   return (
-    <main className="container workspace-main">
+    <WorkspacePage>
       <PageTitle title="Settings" />
-      <div className="settings-grid">
+      <div className="grid items-start gap-7 md:grid-cols-2">
         <AccountForm
           key={[prefs.name, prefs.email, prefs.language, prefs.timezone, prefs.verified].join("|")}
           prefs={prefs}
@@ -61,48 +68,48 @@ export default function Settings() {
           verifying={verifying}
           emailAvailable={state.emailAvailable}
         />
-        <section className="card settings-card">
-          <h2>Notifications</h2>
-          <div className="channel-row">
-            <Mail className="blue-icon" size={21} />
+        <Card className="gap-0 p-6 lg:p-9">
+          <h2 className="mb-7 text-2xl">Notifications</h2>
+          <div className="mb-5 flex items-center gap-4 [&>div]:flex-1">
+            <Mail className="text-sky-accent" size={21} />
             <div>
-              <h3>Email</h3>
-              <p>New findings only</p>
+              <h3 className="text-sm tracking-normal">Email</h3>
+              <p className="mt-1 text-xs">New findings only</p>
             </div>
-            <Toggle
-              label="Email notifications"
+            <Switch
+              aria-label="Email notifications"
               checked={prefs.emailEnabled}
               disabled={pending}
-              change={(emailEnabled) => preferences({ emailEnabled })}
+              onCheckedChange={(emailEnabled) => preferences({ emailEnabled })}
             />
           </div>
-          {!state.emailAvailable && <p className="caption">Email is not available yet.</p>}
-          <div className="usage">
-            <h2>Usage</h2>
-            <div className="row between">
+          {!state.emailAvailable && <p className="text-xs">Email is not available yet.</p>}
+          <div className="mt-8 space-y-5 border-t pt-8">
+            <h2 className="mb-7 text-2xl">Usage</h2>
+            <div className="flex items-center justify-between gap-3 text-xs">
               <span>Active tasks</span>
               <strong>{state.tasks.filter((t) => t.status === "active").length} / 5</strong>
             </div>
-            <progress
+            <Progress
               aria-label="Active task usage"
               max={5}
               value={state.tasks.filter((t) => t.status === "active").length}
             />
-            <div className="row between">
+            <div className="flex items-center justify-between gap-3 text-xs">
               <span title="Resets at 00:00 UTC">Checks today</span>
               <strong>{state.checks} / 30</strong>
             </div>
-            <progress aria-label="Daily check usage" max={30} value={state.checks} />
+            <Progress aria-label="Daily check usage" max={30} value={state.checks} />
           </div>
-        </section>
+        </Card>
       </div>
-      <div className="settings-bottom">
-        <button className="button secondary" disabled={signingOut} onClick={logout}>
+      <div className="mt-8 flex justify-end">
+        <Button variant="outline" disabled={signingOut} onClick={logout}>
           <LogOut size={16} />
           {signingOut ? "Signing out…" : "Sign out"}
-        </button>
+        </Button>
       </div>
-    </main>
+    </WorkspacePage>
   );
 }
 
@@ -124,8 +131,8 @@ function AccountForm({
   const [form, setForm] = useState(prefs);
 
   return (
-    <section className="card settings-card">
-      <h2>Account</h2>
+    <Card className="gap-0 p-6 lg:p-9">
+      <h2 className="mb-7 text-2xl">Account</h2>
       <form
         onSubmit={async (event) => {
           event.preventDefault();
@@ -140,21 +147,21 @@ function AccountForm({
             toast("Preferences saved");
         }}
       >
-        <label>
+        <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
           Display name
-          <input
+          <Input
             required
             minLength={2}
             maxLength={40}
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
           />
-        </label>
-        <label>
+        </Label>
+        <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
           Email
-          <input type="email" value={prefs.email} readOnly />
-        </label>
-        <div className="verification">
+          <Input type="email" value={prefs.email} readOnly />
+        </Label>
+        <div className="-mt-2 mb-6 flex items-center gap-3 text-xs text-muted-foreground">
           {prefs.verified ? (
             <>
               <Check size={15} />
@@ -163,20 +170,21 @@ function AccountForm({
           ) : (
             <>
               <span>Not verified</span>
-              <button
+              <Button
                 type="button"
-                className="text-button"
+                variant="link"
+                size="sm"
                 disabled={verifying || !emailAvailable}
                 onClick={verify}
               >
                 {verifying ? "Sending…" : "Verify email"}
-              </button>
+              </Button>
             </>
           )}
         </div>
-        <label>
+        <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
           Timezone
-          <select
+          <NativeSelect
             value={form.timezone}
             onChange={(event) =>
               setForm((current) => ({ ...current, timezone: event.target.value }))
@@ -194,13 +202,13 @@ function AccountForm({
                 "UTC",
               ]),
             ].map((zone) => (
-              <option key={zone}>{zone}</option>
+              <NativeSelectOption key={zone}>{zone}</NativeSelectOption>
             ))}
-          </select>
-        </label>
-        <label>
+          </NativeSelect>
+        </Label>
+        <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
           Default result language
-          <select
+          <NativeSelect
             value={form.language}
             onChange={(event) =>
               setForm((current) => ({
@@ -209,14 +217,14 @@ function AccountForm({
               }))
             }
           >
-            <option>English</option>
-            <option>Türkçe</option>
-          </select>
-        </label>
-        <button className="button primary" type="submit" disabled={pending}>
+            <NativeSelectOption>English</NativeSelectOption>
+            <NativeSelectOption>Türkçe</NativeSelectOption>
+          </NativeSelect>
+        </Label>
+        <Button type="submit" disabled={pending}>
           {pending ? "Saving…" : "Save preferences"}
-        </button>
+        </Button>
       </form>
-    </section>
+    </Card>
   );
 }

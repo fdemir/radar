@@ -58,12 +58,8 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
   });
 
   return (
-    <div className="mx-auto w-full mt-10 max-w-md p-6">
-      <h1 className="mb-6 text-center text-3xl font-bold">Create Account</h1>
-
-      <p className="mb-6 text-sm text-muted-foreground">
-        You’ll use your username and password to sign in to Radar.
-      </p>
+    <div className="w-full">
+      <h1 className="mb-7 text-center text-[28px] font-semibold">Create Account</h1>
 
       {submitError && (
         <p role="alert" className="mb-4 text-sm text-destructive">
@@ -99,7 +95,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 />
                 <div id={`${field.name}-errors`} aria-live="polite">
                   {field.state.meta.errors.map((error) => (
-                    <p key={error?.message} className="text-red-500">
+                    <p key={error?.message} className="text-sm text-destructive">
                       {error?.message}
                     </p>
                   ))}
@@ -128,7 +124,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 />
                 <div id={`${field.name}-errors`} aria-live="polite">
                   {field.state.meta.errors.map((error) => (
-                    <p key={error?.message} className="text-red-500">
+                    <p key={error?.message} className="text-sm text-destructive">
                       {error?.message}
                     </p>
                   ))}
@@ -157,7 +153,7 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
                 />
                 <div id={`${field.name}-errors`} aria-live="polite">
                   {field.state.meta.errors.map((error) => (
-                    <p key={error?.message} className="text-red-500">
+                    <p key={error?.message} className="text-sm text-destructive">
                       {error?.message}
                     </p>
                   ))}
@@ -181,8 +177,8 @@ export default function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () 
         </form.Subscribe>
       </form>
 
-      <div className="mt-4 text-center">
-        <Button variant="link" onClick={onSwitchToSignIn} className="">
+      <div className="mt-4 flex flex-col items-center gap-1">
+        <Button variant="link" onClick={onSwitchToSignIn}>
           Already have an account? Sign In
         </Button>
       </div>

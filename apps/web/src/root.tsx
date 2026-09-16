@@ -59,7 +59,7 @@ export default function App() {
       disableTransitionOnChange
       storageKey="vite-ui-theme"
     >
-      <div className="app">
+      <div className="min-h-svh">
         {!workspace && <Header />}
         <Outlet />
       </div>
@@ -83,7 +83,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
+    <main className="mx-auto max-w-7xl space-y-4 p-5 pt-16">
       <h1>{message}</h1>
       <p>{details}</p>
       {stack && (

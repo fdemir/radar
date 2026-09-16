@@ -60,12 +60,19 @@ Discord is deferred. There is no Discord login or bot in this version.
 | `packages/ui`            | Shared components and styles                                    |
 | `packages/infra`         | Alchemy Cloudflare resources                                    |
 
+## UI components
+
+Shared UI components live in `packages/ui`. From the repository root, add components with `pnpm --filter @radar/ui exec shadcn add <component> -c ../../apps/web`. Preview changes with `--dry-run`; review before overwriting a customized component. Keep both `components.json` files on the same style and base library.
+
+Use shadcn components for controls and Tailwind utilities for layout. Keep theme tokens in `packages/ui/src/styles/globals.css`. For links styled as buttons, use `buttonVariants` on `Link` or `a` so they retain their link semantics. See the [shadcn monorepo guide](https://ui.shadcn.com/docs/monorepo) and [button documentation](https://ui.shadcn.com/docs/components/base/button#as-link).
+
 ## Checks
 
 Use `pnpm format` to format the code and `pnpm format:check` to check it without changing files.
 `pnpm lint` runs the format check before Oxlint. `pnpm lint:fix` fixes lint issues and formats the code.
 All packages share the root Prettier settings: two spaces, double quotes, semicolons, and a 100-character print width.
 Generated files, database migrations, the lockfile, and ignored files are excluded.
+Oxlint also requires blank lines around control flow, functions, and separate declaration blocks.
 
 ```sh
 pnpm lint
@@ -90,5 +97,3 @@ pnpm exec alchemy deploy --stage production
 Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. If using the generated web URL, update `CORS_ORIGIN` after the first deploy and deploy again. Use web and API domains on the same site, such as `app.example.com` and `api.example.com`, to avoid third-party cookie restrictions.
 
 Cloud deployment must be verified with your Cloudflare account. Local checks do not verify cloud credentials, domains, provider quotas, or live email delivery.
-
-Formatting uses Prettier. Oxlint also requires blank lines between declarations, control flow, and returns. Run `pnpm lint:fix` to apply both.

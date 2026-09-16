@@ -1,3 +1,10 @@
+import { Button } from "@radar/ui/components/button";
+import { Card } from "@radar/ui/components/card";
+import { Input } from "@radar/ui/components/input";
+import { Label } from "@radar/ui/components/label";
+import { NativeSelect, NativeSelectOption } from "@radar/ui/components/native-select";
+import { Switch } from "@radar/ui/components/switch";
+import { Textarea } from "@radar/ui/components/textarea";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ArrowUpRight, Check, MessageSquare, Plus } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -5,7 +12,7 @@ import { toast } from "sonner";
 import { taskInputSchema } from "@radar/core";
 import { api } from "./api";
 import { useWorkspace } from "./context";
-import { Empty, PageTitle, Toggle } from "./components";
+import { Empty, PageTitle, TaskMessages, WorkspacePage } from "./components";
 import { examples, frequencies, type Category, type Frequency, type Task } from "./model";
 
 export default function Editor() {
@@ -90,56 +97,62 @@ export default function Editor() {
 
   if (taskId && !existing)
     return (
-      <main className="container">
+      <WorkspacePage>
         <Empty action={<Link to="/tasks">Back to tasks</Link>}>Task not found.</Empty>
-      </main>
+      </WorkspacePage>
     );
 
   return (
-    <main className="container workspace-main">
+    <WorkspacePage>
       <PageTitle
         title={existing ? "Edit task" : "New task"}
         back={existing ? `/tasks/${existing.id}` : "/tasks"}
       />
-      <div className="editor-grid">
-        <section className="card chat-card">
-          <div className="panel-heading">
-            <MessageSquare size={19} className="blue-icon" />
-            <h2>Task setup</h2>
+      <div className="grid items-start gap-7 md:grid-cols-2">
+        <Card className="gap-0 py-0 md:sticky md:top-27">
+          <div className="flex items-center gap-2.5 border-b p-6">
+            <MessageSquare size={19} className="text-sky-accent" />
+            <h2 className="text-lg">Task setup</h2>
           </div>
-          <div className="chat-messages" ref={chat} aria-live="polite">
+          <div className="h-80 overflow-y-auto p-5 md:h-110 md:p-7" ref={chat} aria-live="polite">
             {task.messages.length ? (
-              task.messages.map((m, i) => (
-                <div className={`message ${m.role}`} key={i}>
-                  <span>{m.role === "user" ? "You" : "Radar"}</span>
-                  <p>{m.text}</p>
-                </div>
-              ))
+              <TaskMessages messages={task.messages} />
             ) : (
-              <div className="chat-empty">
-                <MessageSquare size={27} strokeWidth={1.4} />
+              <div className="pt-7 text-center md:pt-15">
+                <MessageSquare
+                  size={27}
+                  strokeWidth={1.4}
+                  className="mx-auto mb-5 text-sky-accent"
+                />
                 <h3>What should Radar follow?</h3>
-                <div className="suggestions">
+                <div className="mx-auto mt-6 grid max-w-75 gap-2.5">
                   {examples.map((e, i) => (
-                    <button key={e} disabled={thinking || pending} onClick={() => send(e)}>
+                    <Button
+                      variant="outline"
+                      className="justify-between rounded-xl text-[13px] font-normal"
+                      key={e}
+                      disabled={thinking || pending}
+                      onClick={() => send(e)}
+                    >
                       {["Open-source AI tools", "Concerts in Istanbul", "Flights to Tokyo"][i]}
                       <Plus size={16} />
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
             )}
-            {thinking && <p className="thinking">Updating task…</p>}
+            {thinking && <p className="text-xs">Updating task…</p>}
           </div>
           <form
-            className="chat-composer"
+            className="m-5 mt-0 flex items-end rounded-2xl border p-2.5"
             onSubmit={(e) => {
               e.preventDefault();
               send();
             }}
           >
-            <textarea
+            <Textarea
               aria-label="Message to Radar"
+              className="min-h-17 flex-1 resize-none border-0 p-2 text-[13px]"
               disabled={thinking || pending}
               placeholder="Describe what to look for…"
               value={input}
@@ -153,29 +166,30 @@ export default function Editor() {
                 }
               }}
             />
-            <button
-              className="circle-button dark"
+            <Button
+              type="submit"
+              size="icon"
               aria-label="Send message"
               disabled={!input.trim() || thinking || pending}
             >
               <ArrowUp size={20} />
-            </button>
+            </Button>
           </form>
-        </section>
-        <section className="card setup-card">
-          <h2>Details</h2>
-          <label>
+        </Card>
+        <Card className="gap-0 p-6 lg:p-9">
+          <h2 className="mb-7 text-2xl">Details</h2>
+          <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
             Title
-            <input
+            <Input
               disabled={thinking || pending}
               value={task.title}
               maxLength={90}
               onChange={(e) => setTask((t) => ({ ...t, title: e.target.value }))}
             />
-          </label>
-          <label>
+          </Label>
+          <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
             Brief
-            <textarea
+            <Textarea
               disabled={thinking || pending}
               value={task.brief}
               rows={4}
@@ -183,89 +197,97 @@ export default function Editor() {
               onChange={(e) => setTask((t) => ({ ...t, brief: e.target.value }))}
               placeholder="What qualifies as a useful result?"
             />
-          </label>
-          <div className="field-row">
-            <label>
+          </Label>
+          <div className="grid grid-cols-2 gap-4">
+            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
               Interest
-              <select
+              <NativeSelect
                 disabled={thinking || pending}
                 value={task.category}
                 onChange={(e) => setTask((t) => ({ ...t, category: e.target.value as Category }))}
               >
                 {["Technology", "Events", "Travel", "Other"].map((c) => (
-                  <option key={c}>{c}</option>
+                  <NativeSelectOption key={c}>{c}</NativeSelectOption>
                 ))}
-              </select>
-            </label>
-            <label>
+              </NativeSelect>
+            </Label>
+            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
               Results in
-              <select
+              <NativeSelect
                 disabled={thinking || pending}
                 value={task.language}
                 onChange={(e) =>
                   setTask((t) => ({ ...t, language: e.target.value as Task["language"] }))
                 }
               >
-                <option>English</option>
-                <option>Türkçe</option>
-              </select>
-            </label>
+                <NativeSelectOption>English</NativeSelectOption>
+                <NativeSelectOption>Türkçe</NativeSelectOption>
+              </NativeSelect>
+            </Label>
           </div>
-          <div className="field-row">
-            <label>
+          <div className="grid grid-cols-2 gap-4">
+            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
               Frequency
-              <select
+              <NativeSelect
                 disabled={thinking || pending}
                 value={task.frequency}
                 onChange={(e) => setTask((t) => ({ ...t, frequency: e.target.value as Frequency }))}
               >
                 {frequencies.map((f) => (
-                  <option key={f}>{f}</option>
+                  <NativeSelectOption key={f}>{f}</NativeSelectOption>
                 ))}
-              </select>
-            </label>
-            <label>
+              </NativeSelect>
+            </Label>
+            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
               Time
-              <input
+              <Input
                 type="time"
                 value={task.time}
                 disabled={task.frequency === "Hourly" || thinking || pending}
                 onChange={(e) => setTask((t) => ({ ...t, time: e.target.value }))}
               />
-            </label>
+            </Label>
           </div>
-          <p className="caption">
+          <p className="text-xs [&_a]:underline [&_a]:underline-offset-3">
             {state.preferences.timezone} · <Link to="/settings">Change</Link>
           </p>
-          <div className="notification-options">
-            <h3>Notify me via</h3>
-            <div className="row between">
-              <span>Email{!state.preferences.verified && <small>Verify in Settings</small>}</span>
-              <Toggle
-                label="Task email notifications"
+          <div className="my-7 border-t pt-6">
+            <h3 className="mb-4 text-sm tracking-normal">Notify me via</h3>
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                Email
+                {!state.preferences.verified && (
+                  <small className="block text-[11px] text-muted-foreground">
+                    Verify in Settings
+                  </small>
+                )}
+              </span>
+              <Switch
+                aria-label="Task email notifications"
                 disabled={thinking || pending}
                 checked={task.email}
-                change={(email) => setTask((t) => ({ ...t, email }))}
+                onCheckedChange={(email) => setTask((t) => ({ ...t, email }))}
               />
             </div>
           </div>
-          <button
-            className="button primary full"
+          <Button
+            className="w-full"
             disabled={!ready || thinking || pending}
             onClick={() => submit(true)}
           >
             {existing ? <Check size={17} /> : <ArrowUpRight size={17} />}
             {existing ? "Save & run" : "Activate & run"}
-          </button>
-          <button
-            className="text-button full"
+          </Button>
+          <Button
+            variant="link"
+            className="mt-2 w-full"
             disabled={thinking || pending}
             onClick={() => submit(false)}
           >
             Save draft
-          </button>
-        </section>
+          </Button>
+        </Card>
       </div>
-    </main>
+    </WorkspacePage>
   );
 }
