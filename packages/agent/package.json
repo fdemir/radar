@@ -9,9 +9,11 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.51",
     "@langchain/core": "^1.2.11",
     "@langchain/langgraph": "1.4.15",
     "@radar/core": "workspace:*",
+    "ai": "^7.0.105",
     "zod": "catalog:"
   },
   "devDependencies": {
