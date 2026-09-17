@@ -6,6 +6,8 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { bodyLimit } from "hono/body-limit";
 import { validator } from "hono/validator";
+import { streamSSE } from "hono/streaming";
+import type { ComposeEvent } from "@radar/core/stream";
 import z from "zod";
 import type { createAgent } from "@radar/agent";
 import { createResearch } from "@radar/db/research";
@@ -103,8 +105,40 @@ export function workspaceRoutes(
 
       if (!allowed) return c.json({ error: "Too many setup messages. Try again later." }, 429);
 
+      const agent = services.agent;
+
+      if (c.req.header("Accept")?.includes("text/event-stream")) {
+        c.header("Content-Encoding", "Identity");
+
+        const response = streamSSE(c, async (stream) => {
+          const controller = new AbortController();
+          const send = (event: ComposeEvent) => stream.writeSSE({ data: JSON.stringify(event) });
+
+          stream.onAbort(() => controller.abort());
+
+          try {
+            await stream.write(": connected\n\n");
+
+            const result = await agent.compose(task, message, {
+              signal: AbortSignal.any([controller.signal, c.req.raw.signal]),
+              onText: (text) => send({ type: "reply", text }),
+            });
+
+            if (!stream.aborted) await send({ type: "complete", task: result });
+          } catch {
+            if (!stream.aborted)
+              await send({ type: "error", message: "Unable to finish the reply. Try again." });
+          }
+        });
+
+        c.header("Cache-Control", "no-store, no-transform");
+        response.headers.set("Cache-Control", "no-store, no-transform");
+
+        return response;
+      }
+
       try {
-        return c.json(await services.agent.compose(task, message));
+        return c.json(await agent.compose(task, message, { signal: c.req.raw.signal }));
       } catch {
         return c.json({ error: "Unable to update the brief. Try again." }, 502);
       }

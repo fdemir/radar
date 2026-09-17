@@ -1,5 +1,6 @@
 import { END, START, StateGraph, StateSchema } from "@langchain/langgraph";
-import { categorySchema, languageSchema, frequencies, type TaskInput } from "@radar/core";
+import type { TaskInput } from "@radar/core";
+import { composeTask, type ComposeOptions } from "./compose";
 import {
   publicUrl,
   researchResultSchema,
@@ -24,14 +25,6 @@ const graphState = new StateSchema({
   queries: z.array(z.string()).default([]),
   sources: z.array(sourceSchema).default([]),
   result: researchResultSchema.nullable().default(null),
-});
-const briefSchema = z.object({
-  title: z.string().min(1).max(90),
-  brief: z.string().min(1).max(6000),
-  category: categorySchema,
-  frequency: z.enum(frequencies),
-  language: languageSchema,
-  reply: z.string().min(1).max(2000),
 });
 
 export function createAgent(config: AgentConfig) {
@@ -95,24 +88,8 @@ export function createAgent(config: AgentConfig) {
   }
 
   return {
-    async compose(task: TaskInput, message: string) {
-      const update = await model(
-        briefSchema,
-        "You help create a recurring web research task. Update the brief from the existing details and newest message. Keep all existing constraints unless the user changes them. Do not invent a location, budget or event. Ask one short question if essential information is missing. The brief describes what counts as a match; do not claim you searched. Reply in the user's language. Preserve the selected result language unless asked to change it. Use simple English for English replies.",
-        { task, message },
-        AbortSignal.timeout(65_000),
-      );
-      const { reply, ...details } = update;
-
-      return {
-        ...task,
-        ...details,
-        messages: [
-          ...task.messages,
-          { role: "user" as const, text: message },
-          { role: "assistant" as const, text: reply },
-        ],
-      };
+    compose(task: TaskInput, message: string, options?: ComposeOptions) {
+      return composeTask(config, task, message, options);
     },
     async research(
       task: TaskInput,

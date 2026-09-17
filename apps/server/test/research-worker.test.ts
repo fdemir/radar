@@ -96,7 +96,9 @@ beforeAll(async () => {
               brief: input.brief,
               category: input.category,
               frequency: input.frequency,
+              time: input.time,
               language: input.language,
+              email: input.email,
               reply: "I will track official stable releases.",
             }
           : data.sources
