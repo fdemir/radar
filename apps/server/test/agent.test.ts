@@ -104,28 +104,40 @@ it("uses its last turn to finish when the time budget is nearly exhausted", asyn
 });
 
 it("keeps the provider status as the cause of a user-safe model error", async () => {
+  vi.useFakeTimers();
+
   const model = createResearchModel(
     config,
     async () => new Response("private details", { status: 503 }),
   );
 
-  await expect(model(modelInput())).rejects.toMatchObject({
+  const done = expect(model(modelInput())).rejects.toMatchObject({
     constructor: ResearchError,
     message: "Research assistant is unavailable. Try again later.",
     cause: new Error("Model provider returned HTTP 503."),
   });
+
+  await vi.advanceTimersByTimeAsync(4000);
+  await done;
+  vi.useRealTimers();
 });
 
 it("preserves the cause of a network failure", async () => {
+  vi.useFakeTimers();
+
   const cause = new TypeError("Connection reset");
   const model = createResearchModel(config, async () => {
     throw cause;
   });
 
-  await expect(model(modelInput())).rejects.toMatchObject({
+  const done = expect(model(modelInput())).rejects.toMatchObject({
     constructor: ResearchError,
     cause,
   });
+
+  await vi.advanceTimersByTimeAsync(4000);
+  await done;
+  vi.useRealTimers();
 });
 
 it.each([

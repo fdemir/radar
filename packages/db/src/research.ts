@@ -1,9 +1,9 @@
 import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { dayKey } from "@radar/core";
-import type { ResearchResult } from "@radar/core/research";
+import type { ResearchAttempt, ResearchResult } from "@radar/core/research";
 import { nextRunAt } from "@radar/core/schedule";
 import type { Database } from "./index";
-import { finding, run } from "./schema/research";
+import { finding, run, researchAttempt } from "./schema/research";
 import { preference } from "./schema/tasks";
 import { createWorkspace, WorkspaceError } from "./workspace";
 
@@ -75,8 +75,9 @@ export function createResearch(db: Database) {
       .where(eq(finding.taskId, row.taskId))
       .orderBy(desc(finding.date))
       .limit(200);
+    const attempts = await db.select().from(researchAttempt).where(eq(researchAttempt.runId, id));
 
-    return { run: row, task: current, previous, lease };
+    return { run: row, task: current, previous, lease, attempts };
   }
 
   async function progress(id: string, lease: string, stage: number, sources: string[] = []) {
@@ -186,6 +187,40 @@ export function createResearch(db: Database) {
     progress,
     complete,
     fail,
+    async active(id: string, lease: string) {
+      return Boolean(
+        await db
+          .select({ id: run.id })
+          .from(run)
+          .where(and(eq(run.id, id), eq(run.lease, lease), eq(run.status, "running")))
+          .get(),
+      );
+    },
+    async recordAttempt(id: string, lease: string, item: ResearchAttempt) {
+      await raw
+        .prepare(
+          `INSERT INTO research_attempt
+        (id, run_id, operation, service, target, attempt, started, duration_ms, status, source_status, code, error, retry_at)
+        SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM run WHERE id = ? AND lease = ?`,
+        )
+        .bind(
+          crypto.randomUUID(),
+          item.operation,
+          item.service,
+          item.target,
+          item.attempt,
+          item.started,
+          item.durationMs,
+          item.status,
+          item.sourceStatus,
+          item.code,
+          item.error,
+          item.retryAt,
+          id,
+          lease,
+        )
+        .run();
+    },
     async checkpoint(id: string, lease: string, checkpoint: unknown) {
       const saved = await db
         .update(run)
@@ -202,7 +237,7 @@ export function createResearch(db: Database) {
           stage: 0,
           lease: null,
           retryAt,
-          summary: "Waiting for search capacity. This check will resume automatically.",
+          summary: "Waiting for service capacity. This check will resume automatically.",
         })
         .where(and(eq(run.id, id), eq(run.lease, lease), eq(run.status, "running")));
     },

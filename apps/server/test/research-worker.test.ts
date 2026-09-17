@@ -58,6 +58,10 @@ let mode:
   | "direct-source"
   | "long-source"
   | "repair-evidence"
+  | "transient-read"
+  | "transient-search"
+  | "model-rate-limit"
+  | "cancel-retry"
   | "linked-page";
 let calls: {
   host: string;
@@ -183,6 +187,12 @@ beforeAll(async () => {
         const searches = outputs.filter((output) => output.query);
         const pages = outputs.filter((output) => output.url);
         const modelCalls = calls.filter((call) => call.host === "model.example.com").length;
+
+        if (mode === "model-rate-limit" && modelCalls === 3)
+          return new WorkerResponse("Rate limited", {
+            status: 429,
+            headers: { "Retry-After": "120" },
+          });
 
         if (mode === "direct-source" && searches.length) {
           if (!pages.some((page) => page.content) && body.tool_choice !== "none")
@@ -310,6 +320,12 @@ beforeAll(async () => {
 
         if (mode === "search-error") return json({ error: "Unavailable" }, 503);
 
+        if (
+          mode === "transient-search" &&
+          calls.filter((call) => call.host === "api.search.tinyfish.ai").length === 1
+        )
+          return json({ error: "Unavailable" }, 503);
+
         if (mode === "homepage-results" && url.searchParams.has("location"))
           return json({
             results: [
@@ -355,6 +371,18 @@ beforeAll(async () => {
       }
 
       if (url.hostname === "api.fetch.tinyfish.ai") {
+        if (mode === "cancel-retry") {
+          await d1.prepare("UPDATE task SET status = 'paused' WHERE id = ?").bind(taskId).run();
+
+          return json({ error: "Unavailable" }, 503);
+        }
+
+        if (
+          mode === "transient-read" &&
+          calls.filter((call) => call.host === "api.fetch.tinyfish.ai").length === 1
+        )
+          return json({ error: "Temporarily unavailable" }, 503);
+
         if (
           mode !== "expand" &&
           mode !== "partial" &&
@@ -500,6 +528,99 @@ it("finishes an empty search without inventing a finding or sending mail", async
   expect(calls.some((call) => call.host === "api.fetch.tinyfish.ai")).toBe(false);
   expect(sent()).toHaveLength(0);
 });
+it("recovers a temporary page failure without repeating successful searches or spending another check", async () => {
+  mode = "transient-read";
+  await consume(await research.start("owner", taskId));
+  expect(await value("run", "status")).toBe("completed");
+  expect(await value("run", "coverage")).toBe("complete");
+  expect(await value("finding", "count(*)")).toBe(1);
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(2);
+  expect(await value("usage", "checks")).toBe(1);
+  expect(await value("run", "checkpoint")).toBeNull();
+
+  const attempts = await d1
+    .prepare(
+      "SELECT attempt, status, error FROM research_attempt WHERE service = 'fetch' ORDER BY attempt",
+    )
+    .all();
+
+  expect(attempts.results).toEqual([
+    { attempt: 1, status: 503, error: "http" },
+    { attempt: 2, status: 200, error: null },
+  ]);
+  expect(
+    await d1
+      .prepare("SELECT sum(amount) AS total FROM provider_usage WHERE service = 'fetch'")
+      .first("total"),
+  ).toBe(2);
+});
+it("defers a model 429 and resumes without repeating successful searches or reads", async () => {
+  mode = "model-rate-limit";
+
+  const id = await research.start("owner", taskId);
+
+  await consume(id);
+  expect(await value("run", "status")).toBe("running");
+  expect(Number(await value("run", "retry_at"))).toBeGreaterThan(Date.now() + 110_000);
+  expect(await value("task", "failures")).toBe(0);
+  await d1.prepare("UPDATE run SET retry_at = 0").run();
+  await consume(id);
+  expect(await value("run", "status")).toBe("completed");
+  expect(await value("finding", "count(*)")).toBe(1);
+  expect(await value("usage", "checks")).toBe(1);
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(1);
+
+  const attempts = await d1
+    .prepare(
+      "SELECT attempt, status, error FROM research_attempt WHERE operation = 'model:2' ORDER BY attempt",
+    )
+    .all();
+
+  expect(attempts.results).toEqual([
+    { attempt: 1, status: 429, error: "rate_limit" },
+    { attempt: 2, status: 200, error: null },
+  ]);
+});
+it("reserves shared quota for retries and preserves diagnostics when waiting for capacity", async () => {
+  mode = "transient-search";
+
+  const budget = await createProviderBudget(createDb({ DB: d1 }), "test-search-key");
+
+  await budget.reserve("search", 29);
+
+  const id = await research.start("owner", taskId);
+
+  await consume(id);
+  expect(await value("run", "status")).toBe("running");
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  await d1.prepare("DELETE FROM provider_usage").run();
+  await d1.prepare("UPDATE run SET retry_at = 0").run();
+  await consume(id);
+  expect(await value("run", "status")).toBe("completed");
+  expect(await value("usage", "checks")).toBe(1);
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(3);
+
+  const attempts = await d1
+    .prepare(
+      "SELECT attempt, status FROM research_attempt WHERE service = 'search' ORDER BY attempt",
+    )
+    .all();
+
+  expect(attempts.results).toEqual([
+    { attempt: 1, status: 503 },
+    { attempt: 2, status: 200 },
+  ]);
+});
+it("stops an upcoming retry after the user pauses the task", async () => {
+  mode = "cancel-retry";
+  await consume(await research.start("owner", taskId));
+  expect(await value("run", "status")).toBe("cancelled");
+  expect(await value("task", "failures")).toBe(0);
+  expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(1);
+  expect(sent()).toHaveLength(0);
+});
 it("rejects findings that cite an unread source", async () => {
   mode = "bad-citation";
   await consume(await research.start("owner", taskId));
@@ -524,7 +645,13 @@ it("records a provider failure once even when the queue repeats the job", async 
   expect(await value("run", "status")).toBe("failed");
   expect(await value("task", "failures")).toBe(1);
   expect(sent()).toHaveLength(0);
-});
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(3);
+  expect(
+    await d1
+      .prepare("SELECT count(*) AS total FROM research_attempt WHERE error = 'http'")
+      .first("total"),
+  ).toBe(3);
+}, 15_000);
 it("retries email with the same idempotency key without repeating the research", async () => {
   mode = "mail-error";
   await consume(await research.start("owner", taskId));

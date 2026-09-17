@@ -25,7 +25,7 @@ type ResearchDependencies = {
   sources: (
     brief: string,
     signal: AbortSignal,
-    backoff: ResearchOptions["backoff"],
+    hooks: ResearchOptions & { deadline: number },
   ) => ReturnType<typeof createRetrieval>;
   now?: () => number;
 };
@@ -41,7 +41,12 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
     const started = now();
     const today = new Date(started).toISOString().slice(0, 10);
     const checkpoint = restoreCheckpoint(options.checkpoint);
-    const retrieval = sources(task.brief, signal, options.backoff);
+    const requests = {
+      ...options,
+      attempts: [...(options.attempts ?? [])],
+      deadline: started + researchLimits.durationMs,
+    };
+    const retrieval = sources(task.brief, signal, requests);
     const nextNode = (state: ResearchState) =>
       state.pending.length ? "tools" : state.result ? "finish" : "model";
     const emptyResult = {
@@ -88,7 +93,7 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
           const finalTurn =
             state.turns >= researchLimits.turns - 1 ||
             now() - started >= researchLimits.finalTurnAfterMs;
-          const reply = await model({ task, previous, state, finalTurn, today, signal });
+          const reply = await model({ task, previous, state, finalTurn, today, signal, requests });
           const turns = state.turns + 1;
           const messages = [...state.messages, reply];
 
@@ -165,7 +170,6 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
             brief: task.brief,
             signal,
             retrieval,
-            reserve: options.reserve,
             step,
           }),
         ),

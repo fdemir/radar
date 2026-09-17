@@ -15,8 +15,8 @@ export function createAgent(config: AgentConfig) {
     },
     research: createResearch({
       model: createResearchModel(config),
-      sources: (brief, signal, backoff) =>
-        createRetrieval(config.TINYFISH_API_KEY, brief, signal, backoff),
+      sources: (brief, signal, hooks) =>
+        createRetrieval(config.TINYFISH_API_KEY, brief, signal, hooks),
     }),
   };
 }

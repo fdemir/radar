@@ -8,6 +8,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import type { Run } from "@radar/core";
+import type { ResearchAttempt } from "@radar/core/research";
 import { task } from "./tasks";
 import { user } from "./auth";
 
@@ -43,6 +44,28 @@ export const run = sqliteTable(
     index("run_user_idx").on(table.userId, table.started),
     index("run_task_idx").on(table.taskId, table.started),
   ],
+);
+
+export const researchAttempt = sqliteTable(
+  "research_attempt",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => run.id, { onDelete: "cascade" }),
+    operation: text("operation").notNull(),
+    service: text("service").$type<ResearchAttempt["service"]>().notNull(),
+    target: text("target").notNull(),
+    attempt: integer("attempt").notNull(),
+    started: integer("started").notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    status: integer("status"),
+    sourceStatus: integer("source_status"),
+    code: text("code"),
+    error: text("error").$type<ResearchAttempt["error"]>(),
+    retryAt: integer("retry_at"),
+  },
+  (table) => [index("research_attempt_run_idx").on(table.runId, table.started)],
 );
 
 export const finding = sqliteTable(
@@ -85,11 +108,13 @@ export const delivery = sqliteTable(
       .references(() => task.id, { onDelete: "cascade" }),
     target: text("target").notNull(),
     status: text("status")
-      .$type<"pending" | "sending" | "sent" | "cancelled" | "failed">()
+      .$type<"pending" | "sending" | "sent" | "cancelled" | "failed" | "uncertain">()
       .notNull()
       .default("pending"),
     attempts: integer("attempts").notNull().default(0),
     nextAttempt: integer("next_attempt").notNull(),
+    firstAttemptAt: integer("first_attempt_at"),
+    lease: text("lease"),
     sentAt: integer("sent_at"),
     read: integer("read", { mode: "boolean" }).notNull().default(false),
   },

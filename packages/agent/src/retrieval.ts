@@ -1,5 +1,6 @@
 import z from "zod";
-import { publicUrl, ResearchDeferred, type ResearchService } from "@radar/core/research";
+import { publicUrl, type ResearchRequestHooks, type ResearchService } from "@radar/core/research";
+import { ProviderError, requestProvider } from "./provider-request";
 
 export const searchQuerySchema = z.object({
   query: z.string().trim().min(1).max(400),
@@ -55,41 +56,44 @@ export function createRetrieval(
   key: string,
   brief: string,
   signal: AbortSignal,
-  backoff?: (service: ResearchService, retryAt: number) => Promise<void>,
+  hooks: ResearchRequestHooks & { deadline?: number } = {},
 ) {
-  async function request(url: string, service: ResearchService, body?: unknown) {
-    const response = await fetch(url, {
-      method: body ? "POST" : "GET",
-      headers: { "X-API-Key": key, ...(body ? { "Content-Type": "application/json" } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.any([signal, AbortSignal.timeout(body ? 45_000 : 30_000)]),
-      redirect: "manual",
+  function request<T>(
+    url: string,
+    service: ResearchService,
+    operation: string,
+    target: string,
+    parse: (body: unknown) => T,
+    body?: unknown,
+  ) {
+    return requestProvider({
+      ...hooks,
+      service,
+      operation,
+      target,
+      signal,
+      timeoutMs: body ? 45_000 : 30_000,
+      parse,
+      send: (signal) =>
+        fetch(url, {
+          method: body ? "POST" : "GET",
+          headers: { "X-API-Key": key, ...(body ? { "Content-Type": "application/json" } : {}) },
+          body: body ? JSON.stringify(body) : undefined,
+          signal,
+          redirect: "manual",
+        }),
     });
-
-    if (response.status === 429) {
-      const header = response.headers.get("Retry-After");
-      const delay =
-        header && /^\d+$/.test(header)
-          ? Number(header) * 1000
-          : header
-            ? Date.parse(header) - Date.now()
-            : 60_000;
-      const retryAt = Date.now() + Math.max(1000, Number.isFinite(delay) ? delay : 60_000);
-
-      await backoff?.(service, retryAt);
-      throw new ResearchDeferred(retryAt);
-    }
-
-    if (!response.ok) throw new Error("Provider request failed.");
-
-    return response.json();
   }
 
   return {
-    async search(query: z.infer<typeof searchQuerySchema>) {
-      const parsed = z
-        .object({ results: z.array(searchSourceSchema) })
-        .parse(await request(searchUrl(query, brief).href, "search"));
+    async search(query: z.infer<typeof searchQuerySchema>, operation = crypto.randomUUID()) {
+      const parsed = await request(
+        searchUrl(query, brief).href,
+        "search",
+        operation,
+        query.query,
+        (body) => z.object({ results: z.array(searchSourceSchema) }).parse(body),
+      );
       const seen = new Set<string>();
 
       return parsed.results
@@ -104,43 +108,89 @@ export function createRetrieval(
         })
         .slice(0, 10);
     },
-    async read(url: string, title: string) {
-      const parsed = z
-        .object({
-          results: z.array(
-            z.object({
-              url: z.string(),
-              final_url: z.string(),
-              title: z.string().nullable().optional(),
-              text: z.string().nullable(),
-              links: z.array(z.string()).optional(),
-            }),
-          ),
-        })
-        .parse(
-          await request("https://api.fetch.tinyfish.ai", "fetch", {
+    async read(url: string, title: string, operation = crypto.randomUUID()) {
+      try {
+        return await request(
+          "https://api.fetch.tinyfish.ai",
+          "fetch",
+          operation,
+          url,
+          (body) => {
+            const parsed = z
+              .object({
+                results: z.array(
+                  z.object({
+                    url: z.string(),
+                    final_url: z.string(),
+                    title: z.string().nullable().optional(),
+                    text: z.string().nullable(),
+                    links: z.array(z.string()).optional(),
+                  }),
+                ),
+                errors: z
+                  .array(
+                    z.object({
+                      url: z.string(),
+                      error: z.string(),
+                      status: z.number().int().optional(),
+                    }),
+                  )
+                  .default([]),
+              })
+              .parse(body);
+            const page = parsed.results.find((item) => publicUrl(item.url) === url);
+            const finalUrl = page && publicUrl(page.final_url);
+            const failure = parsed.errors.find((item) => publicUrl(item.url) === url);
+
+            if (!page?.text?.trim() && failure) {
+              const kind =
+                failure.error === "timeout"
+                  ? "timeout"
+                  : ["target_unreachable", "proxy_error"].includes(failure.error)
+                    ? "network"
+                    : ["target_http_error", "page_not_found"].includes(failure.error)
+                      ? "http"
+                      : failure.error === "empty_content"
+                        ? "empty_response"
+                        : ["invalid_url", "invalid_redirect_url"].includes(failure.error)
+                          ? "invalid_source"
+                          : "source_error";
+
+              throw new ProviderError(kind, failure.status ?? null, undefined, failure.error);
+            }
+
+            if (!page?.text?.trim()) throw new ProviderError("empty_response");
+
+            if (!finalUrl) throw new ProviderError("invalid_source");
+
+            return {
+              url: finalUrl,
+              title: page.title || title,
+              content:
+                page.text.length <= 30000
+                  ? page.text
+                  : `${page.text.slice(0, 22000)}\n\n[Middle of page omitted]\n\n${page.text.slice(-8000)}`,
+              links: publicLinks(page.links ?? []).slice(0, 80),
+            };
+          },
+          {
             urls: [url],
             purpose: brief.slice(0, 2000),
             format: "markdown",
             links: true,
             ttl: 0,
             per_url_timeout_ms: 25000,
-          }),
+          },
         );
-      const page = parsed.results.find((item) => publicUrl(item.url) === url);
-      const finalUrl = page && publicUrl(page.final_url);
+      } catch (error) {
+        if (
+          error instanceof ProviderError &&
+          ["empty_response", "invalid_source"].includes(error.kind)
+        )
+          return null;
 
-      if (!page?.text?.trim() || !finalUrl) return null;
-
-      return {
-        url: finalUrl,
-        title: page.title || title,
-        content:
-          page.text.length <= 30000
-            ? page.text
-            : `${page.text.slice(0, 22000)}\n\n[Middle of page omitted]\n\n${page.text.slice(-8000)}`,
-        links: publicLinks(page.links ?? []).slice(0, 80),
-      };
+        throw error;
+      }
     },
   };
 }

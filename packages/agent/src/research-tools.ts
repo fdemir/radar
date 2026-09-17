@@ -4,7 +4,7 @@ import { type createRetrieval, searchQuerySchema, searchUrl } from "./retrieval"
 import {
   researchLimits,
   researchStages,
-  type ResearchOptions,
+  ResearchCancelled,
   type ResearchStage,
   type ResearchState,
 } from "./research-state";
@@ -13,13 +13,12 @@ type ToolContext = {
   brief: string;
   signal: AbortSignal;
   retrieval: ReturnType<typeof createRetrieval>;
-  reserve: ResearchOptions["reserve"];
   step: (stage: ResearchStage, state: ResearchState) => Promise<void>;
 };
 
 export async function executeResearchTool(
   state: ResearchState,
-  { brief, signal, retrieval, reserve, step }: ToolContext,
+  { brief, signal, retrieval, step }: ToolContext,
 ): Promise<Partial<ResearchState>> {
   const call = state.pending[0]!;
   const reply = (output: unknown, change: Partial<ResearchState> = {}): Partial<ResearchState> => ({
@@ -64,22 +63,20 @@ export async function executeResearchTool(
         error: "Search budget exhausted. Use existing evidence and finish.",
       });
 
-    await reserve?.("search", 1);
-
     const change = {
       searched: [...state.searched, url],
       followups: state.followups + Number(state.attempted.length > 0),
     };
 
     try {
-      const results = await retrieval.search(query.data);
+      const results = await retrieval.search(query.data, `tool:${call.id}`);
 
       return reply(
         { query: query.data.query, results },
         { ...change, candidates: [...state.candidates, ...results] },
       );
     } catch (error) {
-      if (error instanceof ResearchDeferred) throw error;
+      if (error instanceof ResearchDeferred || error instanceof ResearchCancelled) throw error;
 
       signal.throwIfAborted();
 
@@ -117,14 +114,13 @@ export async function executeResearchTool(
         error: "Page budget exhausted. Use existing evidence and finish.",
       });
 
-    await reserve?.("fetch", 1);
-
     const attempted = [...state.attempted, url];
 
     try {
       const source = await retrieval.read(
         url,
         state.candidates.find((item) => item.url === url)?.title ?? url,
+        `tool:${call.id}`,
       );
 
       if (!source)
@@ -141,7 +137,7 @@ export async function executeResearchTool(
         sources: [...new Map([...state.sources, source].map((item) => [item.url, item])).values()],
       });
     } catch (error) {
-      if (error instanceof ResearchDeferred) throw error;
+      if (error instanceof ResearchDeferred || error instanceof ResearchCancelled) throw error;
 
       signal.throwIfAborted();
 

@@ -1,11 +1,12 @@
 import { cn } from "@radar/ui/lib/utils";
-import { useState } from "react";
-import { ArrowRight, Clock3, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Clock3, Pause, Play, Plus } from "lucide-react";
 import { Link } from "react-router";
 import { Badge } from "@radar/ui/components/badge";
 import { Button, buttonVariants } from "@radar/ui/components/button";
 import { Card, CardContent, CardFooter } from "@radar/ui/components/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@radar/ui/components/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@radar/ui/components/tooltip";
 import { useWorkspace } from "./context";
 import {
   CategoryIcon,
@@ -17,6 +18,43 @@ import {
   WorkspacePage,
 } from "./components";
 import { formatDate, type Finding } from "./model";
+
+function RelativeTime({ date, timezone }: { date: string | number; timezone: string }) {
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => setNow(Date.now()), 0);
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const exact = formatDate(date, timezone);
+  const difference = new Date(date).getTime() - (now ?? 0);
+  const minutes = Math.floor(Math.abs(difference) / 60_000);
+  const amount =
+    minutes >= 1440
+      ? `${Math.floor(minutes / 1440)}d`
+      : minutes >= 60
+        ? `${Math.floor(minutes / 60)}h`
+        : `${minutes}m`;
+  const relative = minutes < 1 ? "now" : difference > 0 ? `in ${amount}` : `${amount} ago`;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<time dateTime={new Date(date).toISOString()} tabIndex={0} />}
+        className="cursor-help underline decoration-dotted underline-offset-2"
+      >
+        {now === null ? exact : relative}
+      </TooltipTrigger>
+      <TooltipContent>{exact}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 export default function Overview() {
   const { state, toggle } = useWorkspace();
@@ -112,29 +150,45 @@ export default function Overview() {
                     </CardContent>
                     <CardFooter className="mx-(--card-spacing) justify-between gap-3 px-0 py-4">
                       <span className="text-[11px] text-muted-foreground">
-                        {latest?.status === "running" && latest.retryAt
-                          ? `Waiting until ${formatDate(latest.retryAt, state.preferences.timezone)}`
-                          : latest
-                            ? `Last check: ${formatDate(latest.started)}`
-                            : "Not checked yet"}
+                        {latest?.status === "running" && latest.retryAt ? (
+                          <>
+                            Waiting until {formatDate(latest.retryAt, state.preferences.timezone)}
+                          </>
+                        ) : latest ? (
+                          <>
+                            Last check:{" "}
+                            <RelativeTime
+                              date={latest.started}
+                              timezone={state.preferences.timezone}
+                            />
+                          </>
+                        ) : (
+                          "Not checked yet"
+                        )}
                         {task.status === "active" &&
                           latest?.status !== "running" &&
                           task.nextRunAt && (
                             <>
                               <br />
-                              Next: {formatDate(task.nextRunAt, state.preferences.timezone)}
+                              Next:{" "}
+                              <RelativeTime
+                                date={task.nextRunAt}
+                                timezone={state.preferences.timezone}
+                              />
                             </>
                           )}
                       </span>
                       <div className="flex items-center gap-3">
                         {task.status !== "draft" && (
                           <Button
-                            variant="link"
-                            size="sm"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={task.status === "active" ? "Pause task" : "Resume task"}
+                            title={task.status === "active" ? "Pause" : "Resume"}
                             className="text-muted-foreground"
                             onClick={() => toggle(task.id)}
                           >
-                            {task.status === "active" ? "Pause" : "Resume"}
+                            {task.status === "active" ? <Pause size={16} /> : <Play size={16} />}
                           </Button>
                         )}
                         <Link

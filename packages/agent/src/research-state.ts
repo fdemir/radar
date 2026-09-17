@@ -1,5 +1,9 @@
 import z from "zod";
-import { researchResultSchema, type Candidate, type ResearchService } from "@radar/core/research";
+import {
+  researchResultSchema,
+  type Candidate,
+  type ResearchRequestHooks,
+} from "@radar/core/research";
 import { searchSourceSchema, sourceSchema } from "./retrieval";
 
 export class ResearchError extends Error {}
@@ -70,11 +74,9 @@ export type ResearchState = z.output<typeof stateSchema>;
 
 export type ResearchCheckpoint = z.output<typeof checkpointSchema>;
 
-export type ResearchOptions = {
+export type ResearchOptions = ResearchRequestHooks & {
   checkpoint?: unknown;
   saveCheckpoint?: (checkpoint: ResearchCheckpoint) => Promise<boolean>;
-  reserve?: (service: ResearchService, amount: number) => Promise<void>;
-  backoff?: (service: ResearchService, retryAt: number) => Promise<void>;
 };
 
 // Preserve completed provider work when a queued run crosses a deployment.

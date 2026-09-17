@@ -118,9 +118,14 @@ export default function Detail() {
           </span>
           <div className="flex flex-wrap items-center gap-3">
             {task.status !== "draft" && (
-              <Button variant="outline" onClick={() => toggle(task.id)}>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label={task.status === "active" ? "Pause task" : "Resume task"}
+                title={task.status === "active" ? "Pause" : "Resume"}
+                onClick={() => toggle(task.id)}
+              >
                 {task.status === "active" ? <Pause size={16} /> : <Play size={16} />}
-                {task.status === "active" ? "Pause" : "Resume"}
               </Button>
             )}
             <Button
@@ -163,7 +168,7 @@ export default function Detail() {
         <Alert className="mt-6" role="status">
           <Clock3 />
           <AlertDescription>
-            Waiting for search capacity. Your check will resume automatically after{" "}
+            Waiting for service capacity. Your check will resume automatically after{" "}
             {formatDate(running.retryAt, state.preferences.timezone)}.
           </AlertDescription>
         </Alert>
@@ -272,7 +277,7 @@ export default function Detail() {
                         <strong className="font-medium">
                           {r.status === "running"
                             ? r.retryAt
-                              ? "Waiting for search capacity"
+                              ? "Waiting for service capacity"
                               : stageLabel(r.stage)
                             : r.summary}
                         </strong>

@@ -54,8 +54,40 @@ export function publicUrl(value: string): string | null {
 
 export type ResearchService = "search" | "fetch";
 
+export type ResearchAttempt = {
+  operation: string;
+  service: ResearchService | "model";
+  target: string;
+  attempt: number;
+  started: number;
+  durationMs: number;
+  status: number | null;
+  sourceStatus: number | null;
+  code: string | null;
+  error:
+    | "http"
+    | "network"
+    | "timeout"
+    | "rate_limit"
+    | "invalid_response"
+    | "empty_response"
+    | "invalid_source"
+    | "source_error"
+    | "cancelled"
+    | null;
+  retryAt: number | null;
+};
+
+export type ResearchRequestHooks = {
+  attempts?: ResearchAttempt[];
+  recordAttempt?: (attempt: ResearchAttempt) => Promise<void>;
+  beforeAttempt?: () => Promise<void>;
+  reserve?: (service: ResearchService, amount: number) => Promise<void>;
+  backoff?: (service: ResearchService, retryAt: number) => Promise<void>;
+};
+
 export class ResearchDeferred extends Error {
   constructor(public readonly retryAt: number) {
-    super("Waiting for search capacity. This check will resume automatically.");
+    super("Waiting for service capacity. This check will resume automatically.");
   }
 }
