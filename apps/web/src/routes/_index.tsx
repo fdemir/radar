@@ -1,10 +1,11 @@
 import { cn } from "@radar/ui/lib/utils";
 import { useState } from "react";
 import { ArrowRight, ArrowUpRight, Clock3, Mail, Search } from "lucide-react";
-import { Link, Navigate, useNavigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import { Button, buttonVariants } from "@radar/ui/components/button";
 import { Card } from "@radar/ui/components/card";
 import { Input } from "@radar/ui/components/input";
+import Footer from "@/components/footer";
 import { authClient } from "@/lib/auth-client";
 import { CategoryIcon, Modal } from "@/features/radar/components";
 import { examples, samples } from "@/features/radar/model";
@@ -113,10 +114,7 @@ export default function Home() {
           </div>
         ))}
       </section>
-      <footer className="mx-auto flex w-[calc(100%-36px)] max-w-[1200px] items-center justify-between border-t py-7 text-xs text-muted-foreground md:w-[calc(100%-56px)] lg:w-[calc(100%-96px)]">
-        <span>Radar</span>
-        <Link to="/login">Sign in</Link>
-      </footer>
+      <Footer />
       {selected && (
         <Modal
           title={selected.title}
@@ -133,7 +131,7 @@ export default function Home() {
             rel="noreferrer"
             className={cn(buttonVariants({ className: "justify-self-start" }))}
           >
-            Open source <ArrowUpRight />
+            View source <ArrowUpRight />
           </a>
           <p className="text-xs">Sample result. Prices and dates are illustrative.</p>
         </Modal>

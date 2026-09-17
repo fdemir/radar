@@ -13,6 +13,7 @@ import { workspaceSchema } from "@radar/core";
 
 import { WorkspaceProvider } from "@/features/radar/store";
 import { useWorkspace } from "@/features/radar/context";
+import Footer from "@/components/footer";
 import Header from "@/components/header";
 import Loader from "@/components/loader";
 import { ENV } from "@/env.public";
@@ -107,11 +108,7 @@ function WorkspaceLayout() {
     <div className={editing ? "flex h-dvh flex-col overflow-hidden" : undefined}>
       <Header unread={state.notices.filter((n) => !n.read).length} />
       <Outlet />
-      {!editing && (
-        <footer className="mx-auto flex w-[calc(100%-36px)] max-w-[1200px] items-center justify-between border-t py-7 text-xs text-muted-foreground md:w-[calc(100%-56px)] lg:w-[calc(100%-96px)]">
-          <span>Radar</span>
-        </footer>
-      )}
+      {!editing && <Footer />}
     </div>
   );
 }

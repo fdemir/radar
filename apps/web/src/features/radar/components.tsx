@@ -280,7 +280,7 @@ export function FindingModal({ item, close }: { item: Finding; close: () => void
       <SourceEvidence evidence={item.evidence} />
       <div className="flex flex-wrap gap-3">
         <a href={item.url} target="_blank" rel="noreferrer" className={cn(buttonVariants())}>
-          Open source <ArrowUpRight />
+          View source <ArrowUpRight />
         </a>
         <Button variant="outline" onClick={() => finding(item.id, { saved: !current.saved })}>
           <Bookmark fill={current.saved ? "currentColor" : "none"} />
