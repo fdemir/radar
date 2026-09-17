@@ -81,7 +81,15 @@ export default function Overview() {
                           <CategoryIcon category={task.category} />
                           {task.category}
                         </Badge>
-                        <Status status={latest?.status === "running" ? "running" : task.status} />
+                        <Status
+                          status={
+                            latest?.status === "running"
+                              ? latest.retryAt
+                                ? "waiting"
+                                : "running"
+                              : task.status
+                          }
+                        />
                       </div>
                       <Link to={path} className="group my-6 block">
                         <h2 className="text-[26px] group-hover:underline group-hover:decoration-1 group-hover:underline-offset-4">
@@ -104,13 +112,19 @@ export default function Overview() {
                     </CardContent>
                     <CardFooter className="mx-(--card-spacing) justify-between gap-3 px-0 py-4">
                       <span className="text-[11px] text-muted-foreground">
-                        {latest ? `Last check: ${formatDate(latest.started)}` : "Not checked yet"}
-                        {task.status === "active" && task.nextRunAt && (
-                          <>
-                            <br />
-                            Next: {formatDate(task.nextRunAt, state.preferences.timezone)}
-                          </>
-                        )}
+                        {latest?.status === "running" && latest.retryAt
+                          ? `Waiting until ${formatDate(latest.retryAt, state.preferences.timezone)}`
+                          : latest
+                            ? `Last check: ${formatDate(latest.started)}`
+                            : "Not checked yet"}
+                        {task.status === "active" &&
+                          latest?.status !== "running" &&
+                          task.nextRunAt && (
+                            <>
+                              <br />
+                              Next: {formatDate(task.nextRunAt, state.preferences.timezone)}
+                            </>
+                          )}
                       </span>
                       <div className="flex items-center gap-3">
                         {task.status !== "draft" && (

@@ -50,3 +50,11 @@ export function publicUrl(value: string): string | null {
     return null;
   }
 }
+
+export type ResearchService = "search" | "fetch";
+
+export class ResearchDeferred extends Error {
+  constructor(public readonly retryAt: number) {
+    super("Waiting for search capacity. This check will resume automatically.");
+  }
+}

@@ -44,6 +44,7 @@ export default function Detail() {
   const task = state.tasks.find((t) => t.id === taskId);
   const runs = state.runs.filter((r) => r.taskId === taskId);
   const running = runs.find((r) => r.status === "running");
+  const waiting = Boolean(running?.retryAt);
   const findings = state.findings.filter((f) => f.taskId === taskId);
   const [tab, setTab] = useState("Findings");
   const [selected, setSelected] = useState<Finding | null>(null);
@@ -100,7 +101,7 @@ export default function Detail() {
       />
       <Card className="gap-0 p-6 lg:px-10 lg:py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <Status status={running ? "running" : task.status} />
+          <Status status={waiting ? "waiting" : running ? "running" : task.status} />
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock3 size={14} />
             {task.frequency}
@@ -132,14 +133,22 @@ export default function Detail() {
               }
               onClick={() => run(task.id)}
             >
-              {running ? <LoaderCircle className="animate-spin" size={16} /> : <Play size={16} />}
-              {running
-                ? "Checking…"
-                : cooldown
-                  ? `Wait ${cooldown}s`
-                  : state.checks >= 30
-                    ? "Daily limit reached"
-                    : "Run now"}
+              {waiting ? (
+                <Clock3 size={16} />
+              ) : running ? (
+                <LoaderCircle className="animate-spin" size={16} />
+              ) : (
+                <Play size={16} />
+              )}
+              {waiting
+                ? "Waiting"
+                : running
+                  ? "Checking…"
+                  : cooldown
+                    ? `Wait ${cooldown}s`
+                    : state.checks >= 30
+                      ? "Daily limit reached"
+                      : "Run now"}
             </Button>
           </div>
         </div>
@@ -150,13 +159,22 @@ export default function Detail() {
           <AlertDescription>Paused after 3 failed checks. Resume to try again.</AlertDescription>
         </Alert>
       )}
+      {waiting && running?.retryAt && (
+        <Alert className="mt-6" role="status">
+          <Clock3 />
+          <AlertDescription>
+            Waiting for search capacity. Your check will resume automatically after{" "}
+            {formatDate(running.retryAt, state.preferences.timezone)}.
+          </AlertDescription>
+        </Alert>
+      )}
       {running?.stage === 6 && (
         <Alert className="mt-6" role="status">
           <LoaderCircle className="animate-spin" />
           <AlertDescription>Checking additional sources</AlertDescription>
         </Alert>
       )}
-      {running && running.stage !== 6 && (
+      {running && !waiting && running.stage !== 6 && (
         <Card
           className="mt-6 grid grid-cols-2 gap-4 p-7 sm:flex-row sm:justify-between md:flex"
           aria-live="polite"
@@ -206,16 +224,28 @@ export default function Detail() {
               </div>
               {!findings.length && (
                 <Empty>
-                  {running
-                    ? "Your check is in progress."
-                    : runs[0]?.coverage === "limited"
-                      ? "Research was incomplete. See run history for details."
-                      : runs[0]?.status === "completed"
-                        ? "No new matches in the sources checked."
-                        : "Run a check to find your first result."}
+                  {waiting
+                    ? "Your check is waiting and will resume automatically."
+                    : running
+                      ? "Your check is in progress."
+                      : runs[0]?.coverage === "limited"
+                        ? "Research was incomplete. See run history for details."
+                        : runs[0]?.status === "completed"
+                          ? "No new matches in the sources checked."
+                          : "Run a check to find your first result."}
                 </Empty>
               )}
-              {!running && runs[0] && <p className="mt-6 text-xs">Last check: {runs[0].summary}</p>}
+              {!running && runs[0] && (
+                <div className="mt-6 space-y-2 text-xs">
+                  <p>Last check: {runs[0].summary}</p>
+                  {runs[0].coverage === "limited" && findings.length > 0 && (
+                    <p>
+                      Research incomplete. Some sources could not be read or evidence was
+                      insufficient. See run history for details.
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           ) : tab === "Run history" ? (
             <Card className="gap-0 py-0">
@@ -226,6 +256,8 @@ export default function Detail() {
                       <span className="shrink-0 text-sky-accent">
                         {r.status === "failed" || r.coverage === "limited" ? (
                           <TriangleAlert size={19} />
+                        ) : r.status === "running" && r.retryAt ? (
+                          <Clock3 size={19} />
                         ) : r.status === "running" ? (
                           <LoaderCircle className="animate-spin" size={19} />
                         ) : r.status === "cancelled" ? (
@@ -236,12 +268,18 @@ export default function Detail() {
                       </span>
                       <span className="flex-1">
                         <strong className="font-medium">
-                          {r.status === "running" ? stageLabel(r.stage) : r.summary}
+                          {r.status === "running"
+                            ? r.retryAt
+                              ? "Waiting for search capacity"
+                              : stageLabel(r.stage)
+                            : r.summary}
                         </strong>
                         <small className="mt-1.5 block text-xs text-muted-foreground">
                           {formatDate(r.started)} ·{" "}
                           {r.status === "running"
-                            ? "In progress"
+                            ? r.retryAt
+                              ? "Waiting"
+                              : "In progress"
                             : r.status === "cancelled"
                               ? "Cancelled"
                               : `${Math.max(0, Math.round(((r.finished ?? r.started) - r.started) / 1000))} sec`}{" "}
@@ -251,6 +289,12 @@ export default function Detail() {
                     </AccordionTrigger>
                     <AccordionContent className="space-y-2 px-6 pb-6 sm:pl-16">
                       <p>{r.findings} new findings</p>
+                      {r.status === "running" && r.retryAt && (
+                        <p>
+                          Resumes automatically after{" "}
+                          {formatDate(r.retryAt, state.preferences.timezone)}.
+                        </p>
+                      )}
                       {r.coverage === "limited" && (
                         <p>
                           Research incomplete: some sources could not be read or evidence was

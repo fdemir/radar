@@ -43,6 +43,8 @@ Research starts with up to two search queries and five pages. It ranks search sn
 
 Each account can have five active tasks and thirty checks per UTC day. Manual checks have a ten-second cooldown. Editing or pausing a task cancels its old work and pending mail. A provider request that has already started may still finish. Delivery retries use a stable Resend idempotency key.
 
+All users sharing a TinyFish key share a durable provider budget: Search allows 30 requests per rolling minute and 500 per rolling hour; Fetch allows 150 URLs per rolling minute and 1,000 per rolling day. These conservative rolling windows follow the published [free limits](https://www.tinyfish.ai/pricing). Requests reserve capacity atomically before calling the provider. Rate limits put the existing check into a visible waiting state, honor Retry-After, and resume automatically through the scheduler without spending another daily check or increasing the failure count. Completed research steps are checkpointed, so waiting before page reading does not repeat searches. Temporary page content is removed when a run completes, fails, or is cancelled.
+
 Discord is deferred. There is no Discord login or bot in this version.
 
 ## Project layout

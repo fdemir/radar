@@ -4,6 +4,8 @@ import { fileURLToPath, URL } from "node:url";
 import { Miniflare, Request as WorkerRequest, Response as WorkerResponse } from "miniflare";
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { createDb } from "@radar/db";
+import { createProviderBudget } from "@radar/db/provider-budget";
+import { ResearchDeferred } from "@radar/core/research";
 import { createResearch } from "@radar/db/research";
 import { createWorkspace } from "@radar/db/workspace";
 import type { TaskInput } from "@radar/core";
@@ -44,7 +46,8 @@ let mode:
   | "expand"
   | "partial"
   | "unreadable"
-  | "unchanged";
+  | "unchanged"
+  | "search-rate-limit";
 let calls: {
   host: string;
   path: string;
@@ -168,6 +171,12 @@ beforeAll(async () => {
         if (mode !== "expand")
           expect(url.searchParams.get("query")).toBe("Hono stable release notes");
 
+        if (mode === "search-rate-limit")
+          return new WorkerResponse("Rate limited", {
+            status: 429,
+            headers: { "Retry-After": "120" },
+          });
+
         if (mode === "search-error") return json({ error: "Unavailable" }, 503);
 
         return json({
@@ -260,6 +269,8 @@ beforeEach(async () => {
   calls = [];
   mode = "success";
   await d1.prepare("DELETE FROM user").run();
+  await d1.prepare("DELETE FROM provider_usage").run();
+  await d1.prepare("DELETE FROM provider_backoff").run();
   await d1
     .prepare(
       "INSERT INTO user (id, name, email, email_verified, created_at, updated_at, username) VALUES ('owner', 'Owner', 'owner@example.com', 1, 0, 0, 'owner')",
@@ -400,4 +411,104 @@ it("does not expand just because readable relevant sources contain no new events
   expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(1);
   expect(await value("run", "coverage")).toBe("complete");
   expect(await value("run", "summary")).toBe("No new matches.");
+});
+
+it("enforces the shared search minute limit atomically across workers", async () => {
+  const budget = await createProviderBudget(createDb({ DB: d1 }), "test-search-key");
+  const now = Date.now();
+  const requests = await Promise.allSettled(
+    Array.from({ length: 12 }, () => budget.reserve("search", 3, now)),
+  );
+
+  expect(requests.filter((request) => request.status === "fulfilled")).toHaveLength(10);
+  expect(await value("provider_usage", "sum(amount)")).toBe(30);
+  await expect(budget.reserve("search", 1, now + 59_000)).rejects.toBeInstanceOf(ResearchDeferred);
+  await expect(budget.reserve("search", 1, now + 61_000)).resolves.toBeUndefined();
+});
+it("defers a rate-limited check without failures, extra daily checks, or repeating its plan", async () => {
+  const budget = await createProviderBudget(createDb({ DB: d1 }), "test-search-key");
+
+  await budget.reserve("search", 30);
+
+  const id = await research.start("owner", taskId);
+
+  await consume(id);
+  await consume(id);
+  await research.expire(Date.now() + 700_000);
+  expect(await value("run", "status")).toBe("running");
+  expect(Number(await value("run", "retry_at"))).toBeGreaterThan(Date.now());
+  expect(await value("task", "failures")).toBe(0);
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(0);
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(1);
+
+  await d1.prepare("DELETE FROM provider_usage").run();
+  await d1.prepare("UPDATE run SET retry_at = 0").run();
+  await consume(id);
+  expect(await value("run", "status")).toBe("completed");
+  expect(await value("run", "checkpoint")).toBeNull();
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(2);
+  expect(await value("usage", "checks")).toBe(1);
+});
+it("resumes at page reading after the daily fetch budget becomes available", async () => {
+  const budget = await createProviderBudget(createDb({ DB: d1 }), "test-search-key");
+
+  await budget.reserve("fetch", 1);
+  await d1
+    .prepare("UPDATE provider_usage SET amount = 1000, created_at = ?")
+    .bind(Date.now() - 3_600_000)
+    .run();
+
+  const id = await research.start("owner", taskId);
+
+  await consume(id);
+  expect(Number(await value("run", "retry_at"))).toBeGreaterThan(Date.now() + 22 * 3_600_000);
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(0);
+  await d1.prepare("DELETE FROM provider_usage WHERE service = 'fetch'").run();
+  await d1.prepare("UPDATE run SET retry_at = 0").run();
+  await consume(id);
+  expect(await value("run", "status")).toBe("completed");
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  expect(await value("usage", "checks")).toBe(1);
+});
+it("honors provider Retry-After across tasks and lets the user cancel waiting work", async () => {
+  mode = "search-rate-limit";
+  await consume(await research.start("owner", taskId));
+  expect(Number(await value("run", "retry_at"))).toBeGreaterThan(Date.now() + 110_000);
+  expect(await value("task", "failures")).toBe(0);
+
+  const secondTask = await workspace.create("owner", input);
+
+  await consume(await research.start("owner", secondTask.id));
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  await workspace.update("owner", taskId, { ...input, status: "paused" });
+  expect(
+    await d1.prepare("SELECT status FROM run WHERE task_id = ?").bind(taskId).first("status"),
+  ).toBe("cancelled");
+  expect(
+    await d1
+      .prepare("SELECT checkpoint FROM run WHERE task_id = ?")
+      .bind(taskId)
+      .first("checkpoint"),
+  ).toBeNull();
+  expect(await research.queued()).toHaveLength(0);
+});
+
+it("keeps hourly search and per-minute URL limits separate, scoped to the provider key", async () => {
+  const db = createDb({ DB: d1 });
+  const budget = await createProviderBudget(db, "test-search-key");
+  const now = Date.now();
+
+  await budget.reserve("search", 1, now - 120_000);
+  await d1.prepare("UPDATE provider_usage SET amount = 500 WHERE service = 'search'").run();
+  await expect(budget.reserve("search", 1, now)).rejects.toMatchObject({
+    retryAt: now - 120_000 + 3_600_000 + 1000,
+  });
+  await budget.reserve("fetch", 150, now);
+  await expect(budget.reserve("fetch", 1, now)).rejects.toBeInstanceOf(ResearchDeferred);
+  await expect(budget.reserve("fetch", 1, now + 61_000)).resolves.toBeUndefined();
+
+  const otherKey = await createProviderBudget(db, "another-key");
+
+  await expect(otherKey.reserve("search", 1, now)).resolves.toBeUndefined();
 });

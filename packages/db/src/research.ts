@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, or } from "drizzle-orm";
 import { dayKey } from "@radar/core";
 import type { ResearchResult } from "@radar/core/research";
 import { nextRunAt } from "@radar/core/schedule";
@@ -50,12 +50,19 @@ export function createResearch(db: Database) {
     return id;
   }
 
-  async function claim(id: string) {
+  async function claim(id: string, now = Date.now()) {
     const lease = crypto.randomUUID();
     const claimed = await db
       .update(run)
-      .set({ stage: 1, lease, summary: "Searching" })
-      .where(and(eq(run.id, id), eq(run.status, "running"), eq(run.stage, 0)))
+      .set({ stage: 1, lease, summary: "Searching", retryAt: null, claimedAt: now })
+      .where(
+        and(
+          eq(run.id, id),
+          eq(run.status, "running"),
+          eq(run.stage, 0),
+          or(isNull(run.retryAt), lte(run.retryAt, now)),
+        ),
+      )
       .returning();
 
     if (!claimed[0]) return null;
@@ -111,7 +118,7 @@ export function createResearch(db: Database) {
     await raw.batch([
       raw
         .prepare(
-          "UPDATE run SET status = 'completed', stage = 5, finished = ?, summary = ?, sources = ?, coverage = ? WHERE id = ? AND lease = ? AND status = 'running'",
+          "UPDATE run SET status = 'completed', stage = 5, finished = ?, summary = ?, sources = ?, coverage = ?, checkpoint = NULL, retry_at = NULL WHERE id = ? AND lease = ? AND status = 'running'",
         )
         .bind(
           now,
@@ -152,7 +159,14 @@ export function createResearch(db: Database) {
 
     await db
       .update(run)
-      .set({ status: "failed", outcome: "error", summary, finished: now })
+      .set({
+        status: "failed",
+        outcome: "error",
+        summary,
+        finished: now,
+        checkpoint: null,
+        retryAt: null,
+      })
       .where(query);
   }
 
@@ -162,6 +176,26 @@ export function createResearch(db: Database) {
     progress,
     complete,
     fail,
+    async checkpoint(id: string, lease: string, checkpoint: unknown) {
+      const saved = await db
+        .update(run)
+        .set({ checkpoint })
+        .where(and(eq(run.id, id), eq(run.lease, lease), eq(run.status, "running")))
+        .returning({ id: run.id });
+
+      return saved.length > 0;
+    },
+    async defer(id: string, lease: string, retryAt: number) {
+      await db
+        .update(run)
+        .set({
+          stage: 0,
+          lease: null,
+          retryAt,
+          summary: "Waiting for search capacity. This check will resume automatically.",
+        })
+        .where(and(eq(run.id, id), eq(run.lease, lease), eq(run.status, "running")));
+    },
     async checks(userId: string, now = Date.now()) {
       const row = await raw
         .prepare("SELECT checks FROM usage WHERE user_id = ? AND day = ?")
@@ -181,17 +215,23 @@ export function createResearch(db: Database) {
         .bind(now, dayKey("UTC", now))
         .all<{ id: string; userId: string }>();
     },
-    async queued() {
+    async queued(now = Date.now()) {
       return db
         .select({ id: run.id })
         .from(run)
-        .where(and(eq(run.status, "running"), eq(run.stage, 0)))
+        .where(
+          and(
+            eq(run.status, "running"),
+            eq(run.stage, 0),
+            or(isNull(run.retryAt), lte(run.retryAt, now)),
+          ),
+        )
         .limit(100);
     },
     async expire(now = Date.now()) {
       await raw
         .prepare(
-          "UPDATE run SET status = 'failed', outcome = 'error', summary = 'Research timed out. Try again.', finished = ? WHERE status = 'running' AND started < ?",
+          "UPDATE run SET status = 'failed', outcome = 'error', summary = 'Research timed out. Try again.', finished = ?, checkpoint = NULL WHERE status = 'running' AND retry_at IS NULL AND coalesce(claimed_at, started) < ?",
         )
         .bind(now, now - 600_000)
         .run();

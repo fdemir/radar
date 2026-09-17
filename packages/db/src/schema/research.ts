@@ -32,6 +32,9 @@ export const run = sqliteTable(
     findings: integer("findings").notNull().default(0),
     sources: text("sources", { mode: "json" }).$type<string[]>().notNull().default([]),
     lease: text("lease"),
+    retryAt: integer("retry_at"),
+    claimedAt: integer("claimed_at"),
+    checkpoint: text("checkpoint", { mode: "json" }).$type<unknown>(),
   },
   (table) => [
     uniqueIndex("run_one_active_idx")
@@ -105,4 +108,26 @@ export const usage = sqliteTable(
     checks: integer("checks").notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.userId, table.day] })],
+);
+
+export const providerUsage = sqliteTable(
+  "provider_usage",
+  {
+    id: text("id").primaryKey(),
+    scope: text("scope").notNull(),
+    service: text("service").notNull(),
+    amount: integer("amount").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("provider_usage_window_idx").on(table.scope, table.service, table.createdAt)],
+);
+
+export const providerBackoff = sqliteTable(
+  "provider_backoff",
+  {
+    scope: text("scope").notNull(),
+    service: text("service").notNull(),
+    retryAt: integer("retry_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.scope, table.service] })],
 );

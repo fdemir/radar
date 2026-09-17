@@ -71,7 +71,16 @@ export function createWorkspace(db: Database) {
       findings: findings.map(
         ({ runId: _run, eventKey: _event, version: _version, ...item }) => item,
       ),
-      runs: runs.map(({ userId: _user, revision: _revision, lease: _lease, ...item }) => item),
+      runs: runs.map(
+        ({
+          userId: _user,
+          revision: _revision,
+          lease: _lease,
+          checkpoint: _checkpoint,
+          claimedAt: _claimed,
+          ...item
+        }) => item,
+      ),
       notices: deliveries.flatMap((item) => {
         const first = findings.find((finding) => finding.runId === item.runId);
 

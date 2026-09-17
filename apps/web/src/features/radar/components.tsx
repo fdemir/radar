@@ -96,7 +96,7 @@ export function PageTitle({
   );
 }
 
-export function Status({ status }: { status: Task["status"] | "running" }) {
+export function Status({ status }: { status: Task["status"] | "running" | "waiting" }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       <span
@@ -106,7 +106,15 @@ export function Status({ status }: { status: Task["status"] | "running" }) {
           status === "draft" && "border border-muted-foreground bg-transparent",
         )}
       />
-      {{ active: "Active", paused: "Paused", draft: "Draft", running: "Checking" }[status]}
+      {
+        {
+          active: "Active",
+          paused: "Paused",
+          draft: "Draft",
+          running: "Checking",
+          waiting: "Waiting",
+        }[status]
+      }
     </span>
   );
 }

@@ -2,6 +2,8 @@ import { createAgent, ResearchCancelled, ResearchError, type AgentConfig } from 
 import { createDb } from "@radar/db";
 import { createResearch } from "@radar/db/research";
 import { WorkspaceError } from "@radar/db/workspace";
+import { createProviderBudget } from "@radar/db/provider-budget";
+import { ResearchDeferred } from "@radar/core/research";
 import type { ResearchJob } from "@radar/core/research";
 import { createEmail, type EmailConfig } from "@radar/notifications";
 
@@ -128,7 +130,9 @@ export default {
     await deliver(env);
   },
   async queue(batch: MessageBatch<ResearchJob>, env: WorkerEnv) {
-    const research = createResearch(createDb(env));
+    const db = createDb(env);
+    const research = createResearch(db);
+    const budget = await createProviderBudget(db, env.TINYFISH_API_KEY);
 
     for (const message of batch.messages) {
       const claimed = await research.claim(message.body.runId);
@@ -143,11 +147,20 @@ export default {
           claimed.task,
           claimed.previous,
           (stage, sources) => research.progress(claimed.run.id, claimed.lease, stage, sources),
+          {
+            checkpoint: claimed.run.checkpoint,
+            saveCheckpoint: (checkpoint) =>
+              research.checkpoint(claimed.run.id, claimed.lease, checkpoint),
+            reserve: (service, amount) => budget.reserve(service, amount),
+            backoff: (service, retryAt) => budget.backoff(service, retryAt),
+          },
         );
 
         await research.complete(claimed.run.id, claimed.lease, result);
       } catch (error) {
-        if (!(error instanceof ResearchCancelled)) {
+        if (error instanceof ResearchDeferred) {
+          await research.defer(claimed.run.id, claimed.lease, error.retryAt);
+        } else if (!(error instanceof ResearchCancelled)) {
           await research.fail(
             claimed.run.id,
             claimed.lease,

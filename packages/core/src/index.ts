@@ -85,6 +85,7 @@ export const runSchema = z.object({
   started: z.number(),
   finished: z.number().nullable(),
   stage: z.number().int(),
+  retryAt: z.number().nullable().default(null),
   status: z.enum(["running", "completed", "failed", "cancelled"]),
   outcome: z.enum(["new", "unchanged", "error"]),
   coverage: z.enum(["complete", "limited"]).default("complete"),
