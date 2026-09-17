@@ -66,6 +66,7 @@ beforeAll(async () => {
       OPENAI_MODEL: "test-model",
       TINYFISH_API_KEY: "test-search-key",
       RESEND_API_KEY: "test-email-key",
+      DISCORD_BOT_TOKEN: "test-discord-token",
       EMAIL_FROM: "radar@example.com",
       CORS_ORIGIN: "https://radar.example.com",
     },
@@ -154,6 +155,12 @@ beforeAll(async () => {
           ],
           errors: [],
         });
+      }
+
+      if (url.hostname === "discord.com") {
+        if (url.pathname.endsWith("/users/@me/channels")) return json({ id: "555555555" });
+
+        if (url.pathname.endsWith("/messages")) return json({ id: "999999999" });
       }
 
       if (url.hostname === "api.resend.com")
@@ -290,4 +297,40 @@ it("schedules a due task through the actual queue consumer", async () => {
   await expect.poll(() => value("delivery", "status"), { timeout: 10_000 }).toBe("sent");
   expect(await value("run", "count(*)")).toBe(1);
   expect(Number(await value("task", "next_run_at"))).toBeGreaterThan(Date.now());
+});
+
+it("delivers a persisted welcome from the scheduler without an interaction token", async () => {
+  await d1.prepare("UPDATE task SET status = 'paused' WHERE id = ?").bind(taskId).run();
+  await d1
+    .prepare(
+      "INSERT INTO discord_connection (id, user_id, discord_user_id, username, created_at) VALUES ('discord', 'owner', '123456789', 'owner', 0)",
+    )
+    .run();
+  await d1
+    .prepare(
+      "INSERT INTO discord_delivery (id, connection_id, kind, next_attempt) VALUES ('welcome', 'discord', 'welcome', 0)",
+    )
+    .run();
+  expect((await worker.scheduled()).outcome).toBe("ok");
+  expect(await value("discord_connection", "status")).toBe("ready");
+  expect(await value("discord_delivery", "status")).toBe("sent");
+  expect(calls.filter((call) => call.path.endsWith("/messages"))).toHaveLength(1);
+  expect(sent()).toHaveLength(0);
+});
+
+it("sends Discord findings through the queue consumer independently of email", async () => {
+  await d1.prepare("UPDATE task SET email = 0 WHERE id = ?").bind(taskId).run();
+  await d1
+    .prepare(
+      "INSERT INTO discord_connection (id, user_id, discord_user_id, username, status, created_at) VALUES ('discord', 'owner', '123456789', 'owner', 'ready', 0)",
+    )
+    .run();
+
+  const id = await research.start("owner", taskId);
+
+  await consume(id);
+  await consume(id);
+  expect(await value("discord_delivery", "status")).toBe("sent");
+  expect(calls.filter((call) => call.path.endsWith("/messages"))).toHaveLength(1);
+  expect(sent()).toHaveLength(0);
 });

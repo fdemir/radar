@@ -38,6 +38,11 @@ const bindings = {
   TINYFISH_API_KEY: localEnv.TINYFISH_API_KEY || "",
   RESEND_API_KEY: localEnv.RESEND_API_KEY || "",
   EMAIL_FROM: localEnv.EMAIL_FROM || "",
+  DISCORD_CLIENT_ID: localEnv.DISCORD_CLIENT_ID || "",
+  DISCORD_CLIENT_SECRET: localEnv.DISCORD_CLIENT_SECRET || "",
+  DISCORD_BOT_TOKEN: localEnv.DISCORD_BOT_TOKEN || "",
+  DISCORD_REDIRECT_URI:
+    localEnv.DISCORD_REDIRECT_URI || `http://localhost:${port}/api/discord/callback`,
 };
 const shared = {
   modulesRoot: root,

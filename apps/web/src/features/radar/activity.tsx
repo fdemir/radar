@@ -1,6 +1,6 @@
 import { cn } from "@radar/ui/lib/utils";
 import { useState } from "react";
-import { ArrowUpRight, CheckCheck, Mail } from "lucide-react";
+import { ArrowUpRight, CheckCheck, Mail, MessageCircle } from "lucide-react";
 import { Link } from "react-router";
 import { Button, buttonVariants } from "@radar/ui/components/button";
 import { Card } from "@radar/ui/components/card";
@@ -36,7 +36,11 @@ export default function Activity() {
               setSelected(notice);
             }}
           >
-            <Mail className="size-5 text-sky-accent" />
+            {notice.channel === "Discord" ? (
+              <MessageCircle className="size-5 text-sky-accent" />
+            ) : (
+              <Mail className="size-5 text-sky-accent" />
+            )}
             <span className="flex-1">
               <strong className="font-medium">
                 {state.findings.find((item) => item.id === notice.findingId)?.title ??

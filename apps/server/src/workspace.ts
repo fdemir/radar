@@ -12,7 +12,10 @@ import z from "zod";
 import type { createAgent } from "@radar/agent";
 import { createResearch } from "@radar/db/research";
 
+import type { Discord } from "@radar/notifications";
+
 export type Services = {
+  discord?: Discord;
   agent?: ReturnType<typeof createAgent>;
   enqueue: (runId: string) => Promise<unknown>;
   emailAvailable: boolean;
@@ -212,6 +215,13 @@ export function workspaceRoutes(
     await db.$client
       .prepare(
         "UPDATE delivery SET read = 1 WHERE (? IS NULL OR id = ?) AND task_id IN (SELECT id FROM task WHERE user_id = ?)",
+      )
+      .bind(c.req.valid("json").id ?? null, c.req.valid("json").id ?? null, c.get("userId"))
+      .run();
+    await db.$client
+      .prepare(
+        `UPDATE discord_delivery SET read = 1 WHERE (? IS NULL OR id = ?)
+      AND connection_id IN (SELECT id FROM discord_connection WHERE user_id = ?)`,
       )
       .bind(c.req.valid("json").id ?? null, c.req.valid("json").id ?? null, c.get("userId"))
       .run();

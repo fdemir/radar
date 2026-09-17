@@ -96,7 +96,7 @@ export const noticeSchema = z.object({
   id: z.string(),
   taskId: z.string(),
   findingId: z.string(),
-  channel: z.literal("Email"),
+  channel: z.enum(["Email", "Discord"]),
   date: z.iso.datetime(),
   read: z.boolean(),
 });

@@ -378,6 +378,10 @@ importers:
         version: 1.18.0
 
   packages/notifications:
+    dependencies:
+      '@radar/db':
+        specifier: workspace:*
+        version: link:../db
     devDependencies:
       '@radar/config':
         specifier: workspace:*

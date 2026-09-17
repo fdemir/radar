@@ -11,5 +11,8 @@
   "devDependencies": {
     "@radar/config": "workspace:*",
     "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@radar/db": "workspace:*"
   }
 }

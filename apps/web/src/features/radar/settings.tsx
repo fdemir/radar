@@ -1,3 +1,4 @@
+import { DiscordSettings } from "./discord-settings";
 import { Button } from "@radar/ui/components/button";
 import { Card } from "@radar/ui/components/card";
 import { Input } from "@radar/ui/components/input";
@@ -84,6 +85,7 @@ export default function Settings() {
             />
           </div>
           {!state.emailAvailable && <p className="text-xs">Email is not available yet.</p>}
+          <DiscordSettings />
           <div className="mt-8 space-y-5 border-t pt-8">
             <h2 className="mb-7 text-2xl">Usage</h2>
             <div className="flex items-center justify-between gap-3 text-xs">

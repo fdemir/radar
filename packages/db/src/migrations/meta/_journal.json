@@ -22,6 +22,13 @@
       "when": 1789536817999,
       "tag": "0002_research",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789605849003,
+      "tag": "0003_discord",
+      "breakpoints": true
     }
   ]
 }
