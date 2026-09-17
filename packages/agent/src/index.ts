@@ -309,23 +309,6 @@ Each finding must cite exactly one page URL that was successfully read. Include 
             const unverifiedQuotes = result.findings.filter(
               (item, index) => item.evidence && !findings[index]!.evidence,
             );
-            const quoteRepairAttempted = state.messages.some(
-              (message) =>
-                message.role === "user" &&
-                message.content?.startsWith("Some evidence quotes could not be verified"),
-            );
-
-            if (unverifiedQuotes.length && !finalTurn && !quoteRepairAttempted)
-              return {
-                turns,
-                messages: [
-                  ...messages,
-                  {
-                    role: "user" as const,
-                    content: `Some evidence quotes could not be verified against the cited page content. Return the result again, keeping source-backed findings and correcting these quotes by copying a short contiguous passage exactly, including Markdown formatting, or leaving evidence empty. Remove claims unsupported by the pages. A rejected quote is not proof that no matching result exists. Findings to correct: ${JSON.stringify(unverifiedQuotes.map((item) => ({ title: item.title, url: item.url, evidence: item.evidence })))}`,
-                  },
-                ],
-              };
 
             return {
               turns,

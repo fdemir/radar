@@ -698,6 +698,7 @@ it("omits an unverified quote without discarding the finding from its successful
   expect(await value("finding", "evidence")).toBe("");
   expect(await value("finding", "url")).toBe(source);
   expect(JSON.stringify(sent())).not.toContain("100% performance improvement");
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(3);
 });
 
 it("delivers a persisted welcome from the scheduler without an interaction token", async () => {
@@ -816,14 +817,13 @@ it("preserves evidence at the end of a long primary-source page", async () => {
   );
   expect(await value("finding", "count(*)")).toBe(1);
 });
-it("lets the model repair a formatting-only quote mismatch before dropping a valid finding", async () => {
+it("keeps a source-backed finding when its quote uses rendered text instead of Markdown", async () => {
   mode = "repair-evidence";
   await consume(await research.start("owner", taskId));
   expect(await value("finding", "count(*)")).toBe(1);
-  expect(await value("finding", "evidence")).toBe(
-    "**Stable Hono release.** Fixes rendering in boundary components.",
-  );
-  expect(await value("run", "coverage")).toBe("complete");
+  expect(await value("finding", "evidence")).toBe("");
+  expect(await value("run", "coverage")).toBe("limited");
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(3);
 });
 it("resumes a partly completed tool batch without repeating its successful searches", async () => {
   mode = "expand";
