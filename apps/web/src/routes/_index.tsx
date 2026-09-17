@@ -35,7 +35,7 @@ export default function Home() {
           <br />
           Get updates.
         </h1>
-        <p className="mt-6 text-[#172f46]">Source-backed findings, delivered to email.</p>
+        <p className="mt-6 text-sky-foreground">Source-backed findings, delivered to email.</p>
         <form
           className="mx-auto mt-9 flex max-w-170 flex-wrap items-center gap-2 rounded-2xl bg-background p-3 sm:flex-nowrap sm:rounded-full sm:p-2 sm:pl-5"
           onSubmit={(event) => {
@@ -64,7 +64,7 @@ export default function Home() {
               key={example}
               variant="ghost"
               size="sm"
-              className="font-sans font-normal text-[#172f46] hover:bg-white/20"
+              className="font-sans font-normal text-sky-foreground hover:bg-white/20 hover:text-sky-foreground"
               onClick={() => setPrompt(example)}
             >
               {["AI tools", "Concerts", "Flights"][index]} <ArrowUpRight />

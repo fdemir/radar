@@ -35,6 +35,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light dark" />
         <Meta />
         <Links />
       </head>
@@ -56,10 +57,10 @@ export default function App() {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="light"
-      forcedTheme="light"
+      defaultTheme="system"
+      enableSystem
       disableTransitionOnChange
-      storageKey="vite-ui-theme"
+      storageKey="radar-theme"
     >
       <div className="min-h-svh">
         {!workspace && <Header />}

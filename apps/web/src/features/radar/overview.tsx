@@ -35,7 +35,7 @@ export default function Overview() {
         <h1 className="text-[46px] leading-none tracking-[-0.055em] text-white sm:text-[64px]">
           Your tasks
         </h1>
-        <p className="mt-4 mb-6 text-[#172f46]">
+        <p className="mt-4 mb-6 text-sky-foreground">
           {state.tasks.filter((task) => task.status === "active").length} active{" "}
           <span className="mx-2">·</span> {state.findings.filter((finding) => !finding.read).length}{" "}
           unread
