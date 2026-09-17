@@ -32,9 +32,9 @@ import {
   Modal,
   PageTitle,
   Status,
-  TaskMessages,
   WorkspacePage,
 } from "./components";
+import { TaskMessages } from "./chat-message";
 import { formatDate, stages, type Finding } from "./model";
 
 export default function Detail() {

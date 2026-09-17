@@ -9,7 +9,7 @@ export default function Header({ unread = 0 }: { unread?: number }) {
   const { data: session } = authClient.useSession();
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 shrink-0 border-b bg-background/95 backdrop-blur-sm">
       <div className="relative mx-auto flex max-w-340 flex-wrap items-center justify-between gap-x-6 px-5 py-4 sm:h-20 sm:flex-nowrap sm:px-7 sm:py-0 lg:px-12">
         <Link to={session ? "/tasks" : "/"} aria-label="Radar home">
           <Brand />

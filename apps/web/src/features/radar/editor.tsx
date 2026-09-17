@@ -1,99 +1,33 @@
-import { Button } from "@radar/ui/components/button";
-import { Card } from "@radar/ui/components/card";
-import { Input } from "@radar/ui/components/input";
-import { Label } from "@radar/ui/components/label";
-import { NativeSelect, NativeSelectOption } from "@radar/ui/components/native-select";
-import { Switch } from "@radar/ui/components/switch";
-import { Textarea } from "@radar/ui/components/textarea";
-import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ArrowUpRight, Check, MessageSquare, Plus } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ArrowLeft, ArrowUp, Check, Plus, RotateCcw, Square } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { taskInputSchema } from "@radar/core";
-import { api } from "./api";
+import { Button, buttonVariants } from "@radar/ui/components/button";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+  useMessageScroller,
+} from "@radar/ui/components/message-scroller";
+import { Spinner } from "@radar/ui/components/spinner";
+import { Textarea } from "@radar/ui/components/textarea";
+import { cn } from "@radar/ui/lib/utils";
 import { useWorkspace } from "./context";
-import { Empty, PageTitle, TaskMessages, WorkspacePage } from "./components";
-import { examples, frequencies, type Category, type Frequency, type Task } from "./model";
+import { Empty, Status, WorkspacePage } from "./components";
+import { ChatMessage } from "./chat-message";
+import { TaskSetupSummary } from "./task-setup-summary";
+import { useTaskChat } from "./use-task-chat";
+import { examples, type Task } from "./model";
 
 export default function Editor() {
-  const { state, save, pending } = useWorkspace();
+  const { state } = useWorkspace();
   const { taskId } = useParams();
   const [params] = useSearchParams();
-  const navigate = useNavigate();
-  const existing = state.tasks.find((t) => t.id === taskId);
+  const existing = state.tasks.find((task) => task.id === taskId);
   const prompt = params.get("prompt") ?? "";
-  const [task, setTask] = useState<Task>(() =>
-    existing
-      ? structuredClone(existing)
-      : {
-          id: crypto.randomUUID(),
-          title: "",
-          category: "Other",
-          frequency: "Daily",
-          revision: 0,
-          brief: "",
-          status: "draft",
-          time: "09:00",
-          language: /türkçe|turkish/i.test(prompt) ? "Türkçe" : state.preferences.language,
-          email: state.preferences.emailEnabled,
-          failures: 0,
-          nextRunAt: null,
-          messages: [],
-        },
-  );
-  const [input, setInput] = useState(prompt);
-  const [thinking, setThinking] = useState(false);
-  const chat = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (chat.current) chat.current.scrollTop = chat.current.scrollHeight;
-  }, [task.messages.length, thinking]);
-
-  async function send(text = input) {
-    const content = text.trim();
-
-    if (!content || thinking) return;
-
-    setThinking(true);
-
-    try {
-      const result = taskInputSchema.parse(
-        await api("/tasks/compose", "POST", {
-          task: taskInputSchema.parse({ ...task, status: "draft" }),
-          message: content,
-        }),
-      );
-
-      setTask((current) => ({ ...current, ...result, status: current.status }));
-      setInput("");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to update the brief.");
-    } finally {
-      setThinking(false);
-    }
-  }
-
-  const ready =
-    task.title.trim().length > 0 &&
-    task.brief.trim().length >= 10 &&
-    (task.frequency === "Hourly" || Boolean(task.time));
-
-  async function submit(active: boolean) {
-    if (active && !ready) return;
-
-    const next: Task = {
-      ...task,
-      title: task.title.trim() || "Untitled task",
-      status: active ? "active" : "draft",
-      failures: 0,
-    };
-    const id = await save(next);
-
-    if (id) {
-      toast(active ? "Task saved" : "Draft saved");
-      navigate(active ? `/tasks/${id}` : "/tasks");
-    }
-  }
 
   if (taskId && !existing)
     return (
@@ -103,191 +37,285 @@ export default function Editor() {
     );
 
   return (
-    <WorkspacePage>
-      <PageTitle
-        title={existing ? "Edit task" : "New task"}
-        back={existing ? `/tasks/${existing.id}` : "/tasks"}
+    <MessageScrollerProvider key={taskId ?? "new"} defaultScrollPosition="end">
+      <TaskEditor
+        initial={
+          existing ?? {
+            id: crypto.randomUUID(),
+            title: "",
+            category: "Other",
+            frequency: "Daily",
+            revision: 0,
+            brief: "",
+            status: "draft",
+            time: "09:00",
+            language: /türkçe|turkish/i.test(prompt) ? "Türkçe" : state.preferences.language,
+            email: state.preferences.emailEnabled,
+            failures: 0,
+            nextRunAt: null,
+            messages: [],
+          }
+        }
+        prompt={prompt}
       />
-      <div className="grid items-start gap-7 md:grid-cols-2">
-        <Card className="gap-0 py-0 md:sticky md:top-27">
-          <div className="flex items-center gap-2.5 border-b p-6">
-            <MessageSquare size={19} className="text-sky-accent" />
-            <h2 className="text-lg">Task setup</h2>
-          </div>
-          <div className="h-80 overflow-y-auto p-5 md:h-110 md:p-7" ref={chat} aria-live="polite">
-            {task.messages.length ? (
-              <TaskMessages messages={task.messages} />
-            ) : (
-              <div className="pt-7 text-center md:pt-15">
-                <MessageSquare
-                  size={27}
-                  strokeWidth={1.4}
-                  className="mx-auto mb-5 text-sky-accent"
-                />
-                <h3>What should Radar follow?</h3>
-                <div className="mx-auto mt-6 grid max-w-75 gap-2.5">
-                  {examples.map((e, i) => (
+    </MessageScrollerProvider>
+  );
+}
+
+function TaskEditor({ initial, prompt }: { initial: Task; prompt: string }) {
+  const { state, save, pending } = useWorkspace();
+  const { taskId } = useParams();
+  const navigate = useNavigate();
+  const { scrollToEnd } = useMessageScroller();
+  const initialPromptSent = useRef(false);
+
+  async function persistDraft(next: Task) {
+    if (next.status !== "draft") return next;
+
+    const id = await save({ ...next, title: next.title.trim() || "Untitled task" });
+
+    if (!id) return next;
+
+    const saved = { ...next, id, revision: taskId ? next.revision + 1 : 0 };
+
+    if (!taskId) navigate(`/tasks/${id}/edit`, { replace: true });
+
+    return saved;
+  }
+
+  const { task, setTask, input, setInput, turn, phase, send, stop } = useTaskChat(
+    initial,
+    persistDraft,
+  );
+  const busy = phase !== "idle" || pending;
+  const ready = Boolean(task.title.trim()) && task.brief.trim().length >= 10;
+  const conversationFull = task.messages.length >= 80;
+
+  useEffect(() => {
+    if (!prompt || initial.messages.length || initialPromptSent.current) return;
+
+    const timer = setTimeout(() => {
+      initialPromptSent.current = true;
+      void send(prompt);
+    }, 0);
+
+    return () => clearTimeout(timer);
+    // The initial prompt is consumed once; subsequent messages come from the composer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompt]);
+
+  function submitMessage(text = input, historyLength = task.messages.length) {
+    if (busy || historyLength >= 80) return;
+
+    scrollToEnd({ behavior: "smooth" });
+    void send(text, historyLength);
+  }
+
+  async function updateDetails(next: Task) {
+    setTask(next);
+    setTask(await persistDraft(next));
+  }
+
+  async function submit(active: boolean) {
+    if (busy || (active && !ready)) return;
+
+    const id = await save({
+      ...task,
+      title: task.title.trim() || "Untitled task",
+      status: active ? "active" : "draft",
+      failures: 0,
+    });
+
+    if (id) {
+      toast(active ? "Task saved" : "Draft saved");
+      navigate(active ? `/tasks/${id}` : "/tasks");
+    }
+  }
+
+  return (
+    <main className="mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col sm:border-x">
+      <div className="flex shrink-0 items-center gap-3 border-b px-4 py-4 sm:px-7">
+        <Link
+          to={taskId ? `/tasks/${taskId}` : "/tasks"}
+          aria-label="Back to tasks"
+          className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "shrink-0")}
+        >
+          <ArrowLeft className="size-4" />
+        </Link>
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+          {task.title || "New task"}
+        </h1>
+        <Status status={task.status} />
+      </div>
+      <MessageScroller>
+        <MessageScrollerViewport aria-label="Task conversation">
+          <MessageScrollerContent
+            className="gap-7 px-5 py-7 sm:px-10"
+            aria-busy={phase === "streaming"}
+          >
+            {!task.messages.length && !turn && (
+              <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6 py-12 text-center sm:py-20">
+                <p className="text-sm text-muted-foreground">What should Radar follow?</p>
+                <div className="grid w-full gap-2">
+                  {examples.map((example, index) => (
                     <Button
+                      key={example}
                       variant="outline"
-                      className="justify-between rounded-xl text-[13px] font-normal"
-                      key={e}
-                      disabled={thinking || pending}
-                      onClick={() => send(e)}
+                      className="justify-between text-xs font-normal"
+                      disabled={busy}
+                      onClick={() => submitMessage(example)}
                     >
-                      {["Open-source AI tools", "Concerts in Istanbul", "Flights to Tokyo"][i]}
-                      <Plus size={16} />
+                      {["Open-source AI tools", "Concerts in Istanbul", "Flights to Tokyo"][index]}
+                      <Plus className="size-3.5" />
                     </Button>
                   ))}
                 </div>
               </div>
             )}
-            {thinking && <p className="text-xs">Updating task…</p>}
-          </div>
-          <form
-            className="m-5 mt-0 flex items-end rounded-2xl border p-2.5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              send();
-            }}
-          >
-            <Textarea
-              aria-label="Message to Radar"
-              className="min-h-17 flex-1 resize-none border-0 p-2 text-[13px]"
-              disabled={thinking || pending}
-              placeholder="Describe what to look for…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              rows={2}
-              maxLength={2000}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              aria-label="Send message"
-              disabled={!input.trim() || thinking || pending}
-            >
-              <ArrowUp size={20} />
-            </Button>
-          </form>
-        </Card>
-        <Card className="gap-0 p-6 lg:p-9">
-          <h2 className="mb-7 text-2xl">Details</h2>
-          <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
-            Title
-            <Input
-              disabled={thinking || pending}
-              value={task.title}
-              maxLength={90}
-              onChange={(e) => setTask((t) => ({ ...t, title: e.target.value }))}
-            />
-          </Label>
-          <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
-            Brief
-            <Textarea
-              disabled={thinking || pending}
-              value={task.brief}
-              rows={4}
-              maxLength={6000}
-              onChange={(e) => setTask((t) => ({ ...t, brief: e.target.value }))}
-              placeholder="What qualifies as a useful result?"
-            />
-          </Label>
-          <div className="grid grid-cols-2 gap-4">
-            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
-              Interest
-              <NativeSelect
-                disabled={thinking || pending}
-                value={task.category}
-                onChange={(e) => setTask((t) => ({ ...t, category: e.target.value as Category }))}
-              >
-                {["Technology", "Events", "Travel", "Other"].map((c) => (
-                  <NativeSelectOption key={c}>{c}</NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Label>
-            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
-              Results in
-              <NativeSelect
-                disabled={thinking || pending}
-                value={task.language}
-                onChange={(e) =>
-                  setTask((t) => ({ ...t, language: e.target.value as Task["language"] }))
-                }
-              >
-                <NativeSelectOption>English</NativeSelectOption>
-                <NativeSelectOption>Türkçe</NativeSelectOption>
-              </NativeSelect>
-            </Label>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
-              Frequency
-              <NativeSelect
-                disabled={thinking || pending}
-                value={task.frequency}
-                onChange={(e) => setTask((t) => ({ ...t, frequency: e.target.value as Frequency }))}
-              >
-                {frequencies.map((f) => (
-                  <NativeSelectOption key={f}>{f}</NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Label>
-            <Label className="mb-5 flex-col items-stretch gap-2 text-[13px]">
-              Time
-              <Input
-                type="time"
-                value={task.time}
-                disabled={task.frequency === "Hourly" || thinking || pending}
-                onChange={(e) => setTask((t) => ({ ...t, time: e.target.value }))}
-              />
-            </Label>
-          </div>
-          <p className="text-xs [&_a]:underline [&_a]:underline-offset-3">
-            {state.preferences.timezone} · <Link to="/settings">Change</Link>
-          </p>
-          <div className="my-7 border-t pt-6">
-            <h3 className="mb-4 text-sm tracking-normal">Notify me via</h3>
-            <div className="flex items-center justify-between gap-3">
-              <span>
-                Email
-                {!state.preferences.verified && (
-                  <small className="block text-[11px] text-muted-foreground">
-                    Verify in Settings
-                  </small>
+            {task.messages
+              .slice(0, turn?.historyLength ?? task.messages.length)
+              .map((message, index) => (
+                <MessageScrollerItem key={index} messageId={`message-${index}`}>
+                  <ChatMessage
+                    key={message.text}
+                    message={message}
+                    actions={!busy}
+                    onRetry={
+                      !turn &&
+                      index === task.messages.length - 1 &&
+                      task.messages[index - 1]?.role === "user"
+                        ? () => submitMessage(task.messages[index - 1]!.text, index - 1)
+                        : undefined
+                    }
+                  />
+                </MessageScrollerItem>
+              ))}
+            {turn && (
+              <>
+                <MessageScrollerItem messageId="pending-user">
+                  <ChatMessage message={{ role: "user", text: turn.message }} />
+                </MessageScrollerItem>
+                {turn.reply && (
+                  <MessageScrollerItem messageId="pending-assistant">
+                    <ChatMessage
+                      message={{ role: "assistant", text: turn.reply }}
+                      streaming={phase === "streaming"}
+                      actions={false}
+                    />
+                  </MessageScrollerItem>
                 )}
-              </span>
-              <Switch
-                aria-label="Task email notifications"
-                disabled={thinking || pending}
-                checked={task.email}
-                onCheckedChange={(email) => setTask((t) => ({ ...t, email }))}
-              />
-            </div>
-          </div>
-          <Button
-            className="w-full"
-            disabled={!ready || thinking || pending}
-            onClick={() => submit(true)}
-          >
-            {existing ? <Check size={17} /> : <ArrowUpRight size={17} />}
-            {existing ? "Save & run" : "Activate & run"}
+                {turn.error && (
+                  <MessageScrollerItem>
+                    <div
+                      role="alert"
+                      className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 text-sm"
+                    >
+                      <p className="flex-1 text-muted-foreground">{turn.error}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => submitMessage(turn.message, turn.historyLength)}
+                      >
+                        <RotateCcw className="size-3.5" />
+                        Try again
+                      </Button>
+                    </div>
+                  </MessageScrollerItem>
+                )}
+              </>
+            )}
+            {phase === "idle" && (task.messages.length > 0 || task.title || task.brief) && (
+              <MessageScrollerItem messageId="task-details">
+                <TaskSetupSummary
+                  task={task}
+                  timezone={state.preferences.timezone}
+                  disabled={busy}
+                  onChange={(next) => void updateDetails(next)}
+                />
+              </MessageScrollerItem>
+            )}
+          </MessageScrollerContent>
+        </MessageScrollerViewport>
+        <MessageScrollerButton />
+      </MessageScroller>
+      <div className="shrink-0 border-t bg-background px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-7">
+        <div className="flex min-h-7 justify-center pb-2" role="status" aria-live="polite">
+          {phase !== "idle" && (
+            <span className="inline-flex items-center gap-2 rounded-full bg-sky-wash px-3 py-1 text-xs text-sky-accent">
+              <Spinner className="size-3.5" aria-hidden="true" />
+              {phase === "saving" ? "Saving task..." : "Setting up your task..."}
+            </span>
+          )}
+        </div>
+        <form
+          className="relative rounded-2xl border bg-background p-2 shadow-xs focus-within:border-ring"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submitMessage();
+          }}
+        >
+          <Textarea
+            aria-label="Message to Radar"
+            className="max-h-40 min-h-14 resize-none border-0 bg-transparent pr-12 text-sm shadow-none focus-visible:ring-0"
+            placeholder={
+              conversationFull
+                ? "Conversation limit reached. Edit the details above."
+                : "Describe what to look for..."
+            }
+            value={input}
+            disabled={busy || conversationFull}
+            onChange={(event) => setInput(event.target.value)}
+            rows={2}
+            maxLength={2000}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                submitMessage();
+              }
+            }}
+          />
+          {phase === "streaming" ? (
+            <Button
+              key="stop"
+              type="button"
+              size="icon-sm"
+              className="absolute right-3 bottom-3"
+              aria-label="Stop reply"
+              onClick={stop}
+            >
+              <Square className="size-3.5" fill="currentColor" />
+            </Button>
+          ) : (
+            <Button
+              key="send"
+              type="submit"
+              size="icon-sm"
+              className="absolute right-3 bottom-3"
+              aria-label="Send message"
+              disabled={!input.trim() || busy || conversationFull}
+            >
+              <ArrowUp className="size-4" />
+            </Button>
+          )}
+        </form>
+        <div className="mt-3 flex items-center justify-end gap-2">
+          {task.status === "draft" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy || !task.messages.length}
+              onClick={() => submit(false)}
+            >
+              Save draft
+            </Button>
+          )}
+          <Button size="sm" disabled={!ready || busy} onClick={() => submit(true)}>
+            {pending ? <Spinner aria-hidden="true" /> : <Check className="size-4" />}
+            {task.status === "draft" ? "Activate & run" : "Save & run"}
           </Button>
-          <Button
-            variant="link"
-            className="mt-2 w-full"
-            disabled={thinking || pending}
-            onClick={() => submit(false)}
-          >
-            Save draft
-          </Button>
-        </Card>
+        </div>
       </div>
-    </WorkspacePage>
+    </main>
   );
 }

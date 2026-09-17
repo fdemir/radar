@@ -6,6 +6,7 @@ import {
   useRevalidator,
   useSearchParams,
   Outlet,
+  useLocation,
 } from "react-router";
 import z from "zod";
 import { workspaceSchema } from "@radar/core";
@@ -99,14 +100,18 @@ export function ErrorBoundary() {
 
 function WorkspaceLayout() {
   const { state } = useWorkspace();
+  const { pathname } = useLocation();
+  const editing = pathname === "/tasks/new" || /^\/tasks\/[^/]+\/edit$/.test(pathname);
 
   return (
-    <>
+    <div className={editing ? "flex h-dvh flex-col overflow-hidden" : undefined}>
       <Header unread={state.notices.filter((n) => !n.read).length} />
       <Outlet />
-      <footer className="mx-auto flex w-[calc(100%-36px)] max-w-[1200px] items-center justify-between border-t py-7 text-xs text-muted-foreground md:w-[calc(100%-56px)] lg:w-[calc(100%-96px)]">
-        <span>Radar</span>
-      </footer>
-    </>
+      {!editing && (
+        <footer className="mx-auto flex w-[calc(100%-36px)] max-w-[1200px] items-center justify-between border-t py-7 text-xs text-muted-foreground md:w-[calc(100%-56px)] lg:w-[calc(100%-96px)]">
+          <span>Radar</span>
+        </footer>
+      )}
+    </div>
   );
 }

@@ -180,25 +180,6 @@ export function SearchField({
   );
 }
 
-export function TaskMessages({ messages }: { messages: Task["messages"] }) {
-  return messages.map((message, index) => (
-    <div
-      key={index}
-      className={cn(
-        "mb-6",
-        message.role === "user" ? "ml-7 rounded-xl bg-muted px-5 py-4" : "pr-7",
-      )}
-    >
-      <span className="mb-2 block text-[11px] text-muted-foreground">
-        {message.role === "user" ? "You" : "Radar"}
-      </span>
-      <p className="leading-relaxed whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">
-        {message.text}
-      </p>
-    </div>
-  ));
-}
-
 export function FindingCard({ item, open }: { item: Finding; open: (finding: Finding) => void }) {
   const { finding } = useWorkspace();
 
