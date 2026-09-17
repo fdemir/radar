@@ -12,6 +12,21 @@ Follow what matters without checking the same sites every day. Describe what you
 
 You can edit, pause, or resume a task at any time. Connect Discord or verify your email in Settings to receive notifications.
 
+## Behind each check
+
+Scheduled and manual checks enter Cloudflare Queues. A research worker uses AI SDK and TinyFish to search the web, read sources, and save new findings in D1. New findings trigger email or Discord notifications.
+
+```mermaid
+flowchart TD
+    Cron["Cloudflare Cron"] --> Queue["Cloudflare Queues"]
+    Manual["Run now"] --> Queue
+    Queue --> Worker["Research worker"]
+    Worker <-->|Search and read| TinyFish["TinyFish"]
+    Worker -->|Save findings| DB[("D1")]
+    DB -->|New findings| Email["Email"]
+    DB -->|New findings| Discord["Discord"]
+```
+
 ## Run it yourself
 
 Radar is built with React Router, Hono, and AI SDK, and runs on Cloudflare Workers and D1.
