@@ -27,6 +27,15 @@ export type ComposeOptions = {
   onText?: (text: string) => Promise<void>;
 };
 
+export class ComposeUnavailableError extends Error {
+  constructor(public readonly providerStatus: number) {
+    super(
+      "The AI service is temporarily unavailable. Please try again later or edit the brief directly.",
+    );
+    this.name = "ComposeUnavailableError";
+  }
+}
+
 export async function composeTask(
   config: { OPENAI_API_KEY: string; OPENAI_BASE_URL: string; OPENAI_MODEL: string },
   task: TaskInput,
@@ -64,7 +73,10 @@ export async function composeTask(
     }),
   });
 
-  if (!response.ok) throw new Error("The assistant is unavailable. Try again.");
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new ComposeUnavailableError(response.status);
+  }
 
   let content = "";
 

@@ -33,7 +33,7 @@ const details = {
 let runtime: Miniflare;
 let d1: Awaited<ReturnType<Miniflare["getD1Database"]>>;
 let cookie: string;
-let mode: "success" | "interrupted" | "invalid" | "unavailable";
+let mode: "success" | "interrupted" | "invalid" | "unavailable" | "no_accounts";
 let release: (() => void) | undefined;
 let modelFinished: boolean;
 let calls: number;
@@ -71,10 +71,17 @@ beforeAll(async () => {
 
       const body = (await request.json()) as { stream: boolean };
 
-      expect(body.stream).toBe(true);
       calls++;
 
       if (mode === "unavailable") return new WorkerResponse("Unavailable", { status: 503 });
+
+      if (mode === "no_accounts")
+        return WorkerResponse.json(
+          { error: { code: "no_accounts", message: "Private upstream account details" } },
+          { status: 503 },
+        );
+
+      expect(body.stream).toBe(true);
 
       const content = JSON.stringify(
         mode === "invalid" ? { ...details, frequency: "Every minute" } : details,
@@ -214,15 +221,43 @@ it.each(["interrupted", "invalid"] as const)("does not apply a %s response", asy
   expect(rest.at(-1)).toMatchObject({ type: "error" });
 });
 
-it("returns a visible stream error when the model is unavailable", async () => {
-  mode = "unavailable";
+it.each(["unavailable", "no_accounts"] as const)(
+  "explains a provider outage (%s) without leaking provider details or changing the task",
+  async (failure) => {
+    mode = failure;
 
-  const response = await request();
-  const events = [];
+    const response = await request();
+    const events = [];
 
-  for await (const data of readEventData(response.body!)) events.push(JSON.parse(data));
+    for await (const data of readEventData(response.body!)) events.push(JSON.parse(data));
 
-  expect(events).toEqual([{ type: "error", message: "Unable to finish the reply. Try again." }]);
+    expect(events).toEqual([
+      {
+        type: "error",
+        message:
+          "The AI service is temporarily unavailable. Please try again later or edit the brief directly.",
+      },
+    ]);
+    expect(await d1.prepare("SELECT count(*) AS n FROM task").first("n")).toBe(0);
+    expect(calls).toBe(1);
+  },
+);
+
+it("returns a safe 503 response for a provider outage without streaming", async () => {
+  mode = "no_accounts";
+
+  const response = await runtime.dispatchFetch(origin + "/api/tasks/compose", {
+    method: "POST",
+    headers: { Origin: origin, Cookie: cookie, "Content-Type": "application/json" },
+    body: JSON.stringify({ task: input, message: "Track stable Hono releases" }),
+  });
+
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({
+    error:
+      "The AI service is temporarily unavailable. Please try again later or edit the brief directly.",
+  });
+  expect(calls).toBe(1);
 });
 
 it("rejects unauthenticated, foreign-origin, overlong and rate-limited streams before calling the model", async () => {

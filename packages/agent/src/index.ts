@@ -6,6 +6,8 @@ import { createRetrieval } from "./retrieval";
 
 export { ResearchError, ResearchCancelled } from "./research-state";
 
+export { ComposeUnavailableError } from "./compose";
+
 export type AgentConfig = ModelConfig & { TINYFISH_API_KEY: string };
 
 export function createAgent(config: AgentConfig) {

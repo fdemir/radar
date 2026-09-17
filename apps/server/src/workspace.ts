@@ -10,6 +10,7 @@ import { streamSSE } from "hono/streaming";
 import type { ComposeEvent } from "@radar/core/stream";
 import z from "zod";
 import type { createAgent } from "@radar/agent";
+import { ComposeUnavailableError } from "@radar/agent";
 import { createResearch } from "@radar/db/research";
 
 import type { Discord } from "@radar/notifications";
@@ -128,9 +129,18 @@ export function workspaceRoutes(
             });
 
             if (!stream.aborted) await send({ type: "complete", task: result });
-          } catch {
+          } catch (error) {
+            if (error instanceof ComposeUnavailableError)
+              console.error("Compose provider unavailable", { status: error.providerStatus });
+
             if (!stream.aborted)
-              await send({ type: "error", message: "Unable to finish the reply. Try again." });
+              await send({
+                type: "error",
+                message:
+                  error instanceof ComposeUnavailableError
+                    ? error.message
+                    : "Unable to finish the reply. Try again.",
+              });
           }
         });
 
@@ -142,7 +152,13 @@ export function workspaceRoutes(
 
       try {
         return c.json(await agent.compose(task, message, { signal: c.req.raw.signal }));
-      } catch {
+      } catch (error) {
+        if (error instanceof ComposeUnavailableError) {
+          console.error("Compose provider unavailable", { status: error.providerStatus });
+
+          return c.json({ error: error.message }, 503);
+        }
+
         return c.json({ error: "Unable to update the brief. Try again." }, 502);
       }
     },
