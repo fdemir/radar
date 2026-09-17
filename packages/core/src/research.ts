@@ -16,7 +16,10 @@ export const researchResultSchema = z.object({
   findings: z.array(candidateSchema).max(5),
 });
 
-export type ResearchResult = z.infer<typeof researchResultSchema> & { sources: string[] };
+export type ResearchResult = z.infer<typeof researchResultSchema> & {
+  sources: string[];
+  coverage?: "complete" | "limited";
+};
 
 export type ResearchJob = { runId: string };
 

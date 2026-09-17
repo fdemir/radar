@@ -28,6 +28,7 @@ export const run = sqliteTable(
     status: text("status").$type<Run["status"]>().notNull().default("running"),
     outcome: text("outcome").$type<Run["outcome"]>().notNull().default("unchanged"),
     summary: text("summary").notNull().default("Queued"),
+    coverage: text("coverage").$type<Run["coverage"]>().notNull().default("complete"),
     findings: integer("findings").notNull().default(0),
     sources: text("sources", { mode: "json" }).$type<string[]>().notNull().default([]),
     lease: text("lease"),

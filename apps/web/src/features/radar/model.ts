@@ -21,6 +21,10 @@ export const stages = [
   "Preparing findings",
 ];
 
+export function stageLabel(stage: number) {
+  return stage === 6 ? "Checking additional sources" : (stages[stage] ?? "Checking");
+}
+
 export const examples = [
   "Find new open-source AI tools I can run locally. Check every day.",
   "Find live jazz shows in Istanbul this weekend.",

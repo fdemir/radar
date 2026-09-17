@@ -1,0 +1,1 @@
+ALTER TABLE `run` ADD `coverage` text DEFAULT 'complete' NOT NULL;

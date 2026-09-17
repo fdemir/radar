@@ -39,7 +39,7 @@ Email is optional. Set `RESEND_API_KEY` and `EMAIL_FROM` to a sender verified in
 - Read findings, save them, and inspect run history and sources. The landing page contains clearly marked sample findings; account workspaces use the database.
 - Receive one email summary when a run adds findings. Duplicate event/version pairs do not create another finding or email.
 
-Research uses at most five search queries, five pages, and five findings per run. If the first searches are empty, it can broaden the queries within the same budget. Model output must cite a page the run actually read. Each run has a three-minute research deadline; the scheduler recovers stuck work after ten minutes. Three consecutive failures pause the task.
+Research starts with up to two search queries and five pages. It ranks search snippets across queries and domains before reading, and selects date, country, language, and domain filters from the brief. If evidence is insufficient or some sources cannot be read, it can expand once, within a total budget of five searches, ten pages, and five findings. Relevant sources with no new events do not trigger extra research. Incomplete research is labeled separately from no new matches. Model output must cite a page the run actually read. Each run has a three-minute research deadline; the scheduler recovers stuck work after ten minutes. Three consecutive failures pause the task.
 
 Each account can have five active tasks and thirty checks per UTC day. Manual checks have a ten-second cooldown. Editing or pausing a task cancels its old work and pending mail. A provider request that has already started may still finish. Delivery retries use a stable Resend idempotency key.
 

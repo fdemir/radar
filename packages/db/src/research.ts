@@ -111,15 +111,23 @@ export function createResearch(db: Database) {
     await raw.batch([
       raw
         .prepare(
-          "UPDATE run SET status = 'completed', stage = 5, finished = ?, summary = ?, sources = ? WHERE id = ? AND lease = ? AND status = 'running'",
+          "UPDATE run SET status = 'completed', stage = 5, finished = ?, summary = ?, sources = ?, coverage = ? WHERE id = ? AND lease = ? AND status = 'running'",
         )
-        .bind(now, result.summary, JSON.stringify(result.sources), id, lease),
+        .bind(
+          now,
+          result.summary,
+          JSON.stringify(result.sources),
+          result.coverage ?? "complete",
+          id,
+          lease,
+        ),
       ...inserts,
       raw
         .prepare(
           `UPDATE run SET findings = (SELECT count(*) FROM finding WHERE run_id = ?),
         outcome = CASE WHEN EXISTS (SELECT 1 FROM finding WHERE run_id = ?) THEN 'new' ELSE 'unchanged' END,
         summary = CASE WHEN EXISTS (SELECT 1 FROM finding WHERE run_id = ?) THEN summary
+          WHEN coverage = 'limited' THEN CASE WHEN (SELECT language FROM task WHERE id = task_id) = 'Türkçe' THEN 'Araştırma eksik. Bazı kaynaklar okunamadı veya yeterli kanıt bulunamadı.' ELSE 'Research incomplete. Some sources could not be read or evidence was insufficient.' END
           WHEN (SELECT language FROM task WHERE id = task_id) = 'Türkçe' THEN 'Yeni eşleşme yok.' ELSE 'No new matches.' END
         WHERE id = ? AND lease = ? AND status = 'completed'`,
         )

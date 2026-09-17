@@ -87,6 +87,7 @@ export const runSchema = z.object({
   stage: z.number().int(),
   status: z.enum(["running", "completed", "failed", "cancelled"]),
   outcome: z.enum(["new", "unchanged", "error"]),
+  coverage: z.enum(["complete", "limited"]).default("complete"),
   summary: z.string(),
   findings: z.number().int(),
   sources: z.array(z.url()),
