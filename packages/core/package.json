@@ -10,6 +10,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "eventsource-parser": "^4.1.1",
     "zod": "catalog:"
   },
   "devDependencies": {

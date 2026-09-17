@@ -9,8 +9,9 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@radar/core": "workspace:*",
+    "@langchain/core": "^1.2.11",
     "@langchain/langgraph": "1.4.15",
+    "@radar/core": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
