@@ -1,5 +1,5 @@
 import z from "zod";
-import { publicUrl } from "@radar/core/research";
+import { publicUrl, ResearchDeferred, type ResearchService } from "@radar/core/research";
 
 export const searchQuerySchema = z.object({
   query: z.string().trim().min(1).max(400),
@@ -21,12 +21,15 @@ export const searchQuerySchema = z.object({
 export const searchSourceSchema = z.object({
   url: z.string(),
   title: z.string(),
-  snippet: z.string(),
-  query: z.string(),
-  position: z.number(),
+  snippet: z.string().default(""),
 });
 
-export type SearchSource = z.infer<typeof searchSourceSchema>;
+export const sourceSchema = z.object({
+  url: z.string(),
+  title: z.string(),
+  content: z.string(),
+  links: z.array(z.string()).default([]),
+});
 
 export function searchUrl(query: z.infer<typeof searchQuerySchema>, brief: string) {
   const url = new URL("https://api.search.tinyfish.ai");
@@ -44,47 +47,97 @@ export function searchUrl(query: z.infer<typeof searchQuerySchema>, brief: strin
   return url;
 }
 
-// Rank inexpensive search snippets before spending the page-reading budget.
-// Keep diversity penalties bounded so unrelated domains cannot displace relevant pages.
-export function selectSources(candidates: SearchSource[], brief: string, excluded: string[]) {
-  const terms = [...new Set(brief.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])];
-  const seen = new Set(excluded);
-  const pool = candidates.flatMap((source) => {
-    const url = publicUrl(source.url);
+export function publicLinks(values: string[]) {
+  return [...new Set(values.flatMap((value) => publicUrl(value) ?? []))];
+}
 
-    if (!url || seen.has(url)) return [];
+export function createRetrieval(
+  key: string,
+  brief: string,
+  signal: AbortSignal,
+  backoff?: (service: ResearchService, retryAt: number) => Promise<void>,
+) {
+  async function request(url: string, service: ResearchService, body?: unknown) {
+    const response = await fetch(url, {
+      method: body ? "POST" : "GET",
+      headers: { "X-API-Key": key, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.any([signal, AbortSignal.timeout(body ? 45_000 : 30_000)]),
+      redirect: "manual",
+    });
 
-    seen.add(url);
+    if (response.status === 429) {
+      const header = response.headers.get("Retry-After");
+      const delay =
+        header && /^\d+$/.test(header)
+          ? Number(header) * 1000
+          : header
+            ? Date.parse(header) - Date.now()
+            : 60_000;
+      const retryAt = Date.now() + Math.max(1000, Number.isFinite(delay) ? delay : 60_000);
 
-    return [{ ...source, url }];
-  });
-  const selected: SearchSource[] = [];
-  const domains = new Map<string, number>();
-  const queries = new Map<string, number>();
+      await backoff?.(service, retryAt);
+      throw new ResearchDeferred(retryAt);
+    }
 
-  while (pool.length && selected.length < 5) {
-    const score = (source: SearchSource) => {
-      const text = `${source.title} ${source.snippet}`.toLowerCase();
-      const relevance =
-        terms.filter((term) => text.includes(term)).length / Math.max(1, terms.length);
+    if (!response.ok) throw new Error("Provider request failed.");
 
-      return (
-        relevance * 3 +
-        1 / Math.max(1, source.position) -
-        Math.min(domains.get(new URL(source.url).hostname) ?? 0, 1) * 0.35 -
-        Math.min(queries.get(source.query) ?? 0, 1) * 0.15
-      );
-    };
-
-    pool.sort((a, b) => score(b) - score(a));
-
-    const next = pool.shift()!;
-    const domain = new URL(next.url).hostname;
-
-    selected.push(next);
-    domains.set(domain, (domains.get(domain) ?? 0) + 1);
-    queries.set(next.query, (queries.get(next.query) ?? 0) + 1);
+    return response.json();
   }
 
-  return selected;
+  return {
+    async search(query: z.infer<typeof searchQuerySchema>) {
+      const parsed = z
+        .object({ results: z.array(searchSourceSchema) })
+        .parse(await request(searchUrl(query, brief).href, "search"));
+      const seen = new Set<string>();
+
+      return parsed.results
+        .flatMap((item) => {
+          const url = publicUrl(item.url);
+
+          if (!url || seen.has(url)) return [];
+
+          seen.add(url);
+
+          return [{ url, title: item.title.slice(0, 300), snippet: item.snippet.slice(0, 2000) }];
+        })
+        .slice(0, 10);
+    },
+    async read(url: string, title: string) {
+      const parsed = z
+        .object({
+          results: z.array(
+            z.object({
+              url: z.string(),
+              final_url: z.string(),
+              title: z.string().nullable().optional(),
+              text: z.string().nullable(),
+              links: z.array(z.string()).optional(),
+            }),
+          ),
+        })
+        .parse(
+          await request("https://api.fetch.tinyfish.ai", "fetch", {
+            urls: [url],
+            purpose: brief.slice(0, 2000),
+            format: "markdown",
+            links: true,
+            ttl: 0,
+            per_url_timeout_ms: 25000,
+          }),
+        );
+      const page = parsed.results.find((item) => publicUrl(item.url) === url);
+      const finalUrl = page && publicUrl(page.final_url);
+
+      if (!page?.text?.trim() || !finalUrl) return null;
+
+      return {
+        url: finalUrl,
+        title: page.title || title,
+        content: page.text.slice(0, 7000),
+        links: publicLinks(page.links ?? []).slice(0, 80),
+      };
+    },
+  };
 }

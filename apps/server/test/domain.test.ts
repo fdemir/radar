@@ -39,28 +39,15 @@ it("rejects private and non-web URLs and removes tracking without skipping adjac
   );
 });
 
-it("keeps relevant job pages ahead of unrelated domains when diversifying sources", async () => {
-  const { selectSources } = await import("../../../packages/agent/src/retrieval");
-  const jobs = [1, 2, 3, 4, 5].map((position) => ({
-    url: `https://tr.linkedin.com/jobs/view/${position}`,
-    title: "Chief Technology Officer CTO jobs Turkey",
-    snippet: "Currently open CTO job in Turkey",
-    position,
-    query: "CTO jobs Turkey",
-  }));
-  const unrelated = ["dnr.wisconsin.gov", "ato.gov.au", "fja.gc.ca", "fw.ky.gov"].map((host) => ({
-    url: `https://${host}/`,
-    title: "Home",
-    snippet: "Government services and information",
-    position: 1,
-    query: "other",
-  }));
+it("keeps only unique public links for source follow-up", async () => {
+  const { publicLinks } = await import("../../../packages/agent/src/retrieval");
 
   expect(
-    selectSources(
-      [...jobs, ...unrelated],
-      "Find currently open Chief Technology Officer CTO jobs in Turkey",
-      [],
-    ).map((source) => source.url),
-  ).toEqual(jobs.map((source) => source.url));
+    publicLinks([
+      "https://careers.example.com/cto?utm_source=search",
+      "https://careers.example.com/cto",
+      "http://127.0.0.1/private",
+      "mailto:jobs@example.com",
+    ]),
+  ).toEqual(["https://careers.example.com/cto"]);
 });

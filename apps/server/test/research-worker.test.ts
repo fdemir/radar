@@ -50,7 +50,12 @@ let mode:
   | "unchanged"
   | "search-rate-limit"
   | "bad-evidence"
-  | "homepage-results";
+  | "homepage-results"
+  | "snippet-selection"
+  | "repeated-tools"
+  | "invalid-output"
+  | "follow-read-limit"
+  | "linked-page";
 let calls: {
   host: string;
   path: string;
@@ -112,10 +117,32 @@ beforeAll(async () => {
         });
 
       if (url.hostname === "model.example.com") {
-        const messages = body.messages as { role: string; content: string }[];
-        const data = JSON.parse(messages[1]!.content.slice("Return JSON for this data:\n".length));
-        const content = data.message
-          ? {
+        const messages = body.messages as { role: string; content: string | null }[];
+        const respond = (content: unknown) =>
+          json({ choices: [{ message: { role: "assistant", content: JSON.stringify(content) } }] });
+        const invoke = (name: string, args: Record<string, unknown>[]) =>
+          json({
+            choices: [
+              {
+                message: {
+                  role: "assistant",
+                  tool_calls: args.map((arg, i) => ({
+                    id: `call-${calls.length}-${i}`,
+                    type: "function",
+                    function: { name, arguments: JSON.stringify(arg) },
+                  })),
+                },
+              },
+            ],
+          });
+
+        if (!body.tools) {
+          const data = JSON.parse(
+            messages[1]!.content!.slice("Return JSON for this data:\n".length),
+          );
+
+          if (data.message)
+            return respond({
               title: input.title,
               brief: input.brief,
               category: input.category,
@@ -124,65 +151,124 @@ beforeAll(async () => {
               language: input.language,
               email: input.email,
               reply: "I will track official stable releases.",
-            }
-          : data.sources
-            ? {
-                summary: "One stable release.",
-                needsMoreEvidence:
-                  mode === "homepage-results" ||
-                  (mode === "expand" &&
-                    calls.filter((call) => call.host === "api.fetch.tinyfish.ai").length === 1),
-                findings:
-                  (mode === "homepage-results" &&
-                    data.sources.every(
-                      (item: { url: string }) => new URL(item.url).pathname === "/",
-                    )) ||
-                  mode === "unchanged" ||
-                  (mode === "expand" &&
-                    calls.filter((call) => call.host === "api.fetch.tinyfish.ai").length === 1)
-                    ? []
-                    : [
-                        {
-                          ...candidate,
-                          evidence:
-                            mode === "bad-evidence"
-                              ? "This release guarantees a 100% performance improvement."
-                              : candidate.evidence,
-                          url:
-                            mode === "bad-citation"
-                              ? "https://unread.example.com/invented"
-                              : source,
-                        },
-                      ],
-              }
-            : {
-                queries:
-                  mode === "expand"
-                    ? data.previousQueries
-                      ? [
-                          { query: "Hono release announcement" },
-                          { query: "Hono changelog" },
-                          { query: "Hono stable versions" },
-                        ]
-                      : [
-                          {
-                            query: "Hono stable release notes",
-                            include_domains: ["github.com"],
-                            recency_minutes: 2880,
-                          },
-                          { query: "Hono official notes", location: "TR", language: "tr" },
-                        ]
-                    : [
-                        {
-                          query: "Hono stable release notes",
-                          ...(mode === "homepage-results"
-                            ? { location: "TR", language: "tr" }
-                            : {}),
-                        },
-                      ],
-              };
+            });
 
-        return json({ choices: [{ message: { content: JSON.stringify(content) } }] });
+          // The former fixed pipeline cannot let the model choose a promising result.
+          return respond(
+            data.sources
+              ? { summary: "No verified release.", findings: [], needsMoreEvidence: true }
+              : { queries: [{ query: "Hono stable release notes" }] },
+          );
+        }
+
+        const outputs = messages
+          .filter((message) => message.role === "tool")
+          .map((message) => JSON.parse(message.content!));
+        const resumeMessage = messages.find(
+          (message) => message.role === "user" && message.content?.startsWith('{"resume":'),
+        );
+
+        if (resumeMessage?.content) {
+          const resume = JSON.parse(resumeMessage.content);
+
+          outputs.push(
+            { query: "Hono stable release notes", results: resume.searchResults },
+            ...resume.pages,
+          );
+        }
+
+        const searches = outputs.filter((output) => output.query);
+        const pages = outputs.filter((output) => output.url);
+        const modelCalls = calls.filter((call) => call.host === "model.example.com").length;
+
+        if (mode === "invalid-output" && modelCalls === 1) return respond({ incomplete: true });
+
+        if (mode === "repeated-tools" && body.tool_choice !== "none")
+          return invoke("searchWeb", [{ query: "Hono stable release notes" }]);
+
+        if (!searches.length)
+          return invoke(
+            "searchWeb",
+            mode === "expand"
+              ? [
+                  {
+                    query: "Hono stable release notes",
+                    include_domains: ["github.com"],
+                    recency_minutes: 2880,
+                  },
+                  { query: "Hono official notes", location: "TR", language: "tr" },
+                ]
+              : [
+                  {
+                    query: "Hono stable release notes",
+                    ...(mode === "homepage-results" ? { location: "TR", language: "tr" } : {}),
+                  },
+                ],
+          );
+
+        if (mode === "homepage-results" && searches.length === 1)
+          return invoke("searchWeb", [{ query: "Hono stable release notes" }]);
+
+        if (!pages.length && mode !== "empty" && mode !== "search-error") {
+          const results = searches.flatMap((search) => search.results ?? []);
+          const selected =
+            mode === "snippet-selection"
+              ? results.filter((result) => result.snippet?.includes("Stable release"))
+              : results
+                  .filter((result) => result.url !== "https://github.com/")
+                  .slice(0, mode === "expand" ? 3 : 2);
+
+          return invoke(
+            "scrapeWebsite",
+            selected.map((result) => ({ url: result.url })),
+          );
+        }
+
+        if (mode === "linked-page" && pages.length === 1)
+          return invoke("scrapeWebsite", [{ url: source }]);
+
+        if (mode === "expand" && searches.length === 2)
+          return invoke("searchWeb", [
+            { query: "Hono release announcement" },
+            { query: "Hono changelog" },
+          ]);
+
+        if (mode === "expand" && pages.length === 3)
+          return invoke(
+            "scrapeWebsite",
+            searches
+              .slice(2)
+              .flatMap((search) => search.results ?? [])
+              .filter((result) => !pages.some((page) => page.url === result.url))
+              .slice(0, 4)
+              .map((result) => ({ url: result.url })),
+          );
+
+        if (mode === "follow-read-limit" && body.tool_choice !== "none")
+          return invoke("scrapeWebsite", [
+            { url: source },
+            { url: "http://127.0.0.1/private" },
+            { url: "https://unread.example.com/invented" },
+          ]);
+
+        return respond({
+          summary: "One stable release.",
+          needsMoreEvidence: mode === "unreadable" || mode === "repeated-tools",
+          findings: ["empty", "unreadable", "unchanged", "search-error", "repeated-tools"].includes(
+            mode,
+          )
+            ? []
+            : [
+                {
+                  ...candidate,
+                  evidence:
+                    mode === "bad-evidence"
+                      ? "This release guarantees a 100% performance improvement."
+                      : candidate.evidence,
+                  url: mode === "bad-citation" ? "https://unread.example.com/invented" : source,
+                },
+              ],
+        });
       }
 
       if (url.hostname === "api.search.tinyfish.ai") {
@@ -220,8 +306,18 @@ beforeAll(async () => {
                     })),
                   ]
                 : [
+                    ...(mode === "snippet-selection"
+                      ? Array.from({ length: 6 }, (_, i) => ({
+                          url: `https://hono.dev/irrelevant/${i}`,
+                          title: "Hono tutorial",
+                          snippet: "Old tutorial, no release news",
+                        }))
+                      : []),
                     {
-                      url: source + "?utm_source=search",
+                      url:
+                        mode === "linked-page"
+                          ? "https://hono.dev/releases"
+                          : source + "?utm_source=search",
                       title: "Hono release",
                       snippet: "Stable release",
                     },
@@ -234,7 +330,12 @@ beforeAll(async () => {
       }
 
       if (url.hostname === "api.fetch.tinyfish.ai") {
-        if (mode !== "expand" && mode !== "partial" && mode !== "homepage-results")
+        if (
+          mode !== "expand" &&
+          mode !== "partial" &&
+          mode !== "homepage-results" &&
+          mode !== "linked-page"
+        )
           expect(body.urls).toEqual([source]);
 
         expect(body.ttl).toBe(0);
@@ -251,7 +352,11 @@ beforeAll(async () => {
                   .map((url) => ({
                     url,
                     final_url: url,
-                    text: "# v4.13.7\nStable Hono release. Fixes rendering in boundary components.",
+                    text:
+                      url === "https://hono.dev/releases"
+                        ? "Latest releases. Follow a release link to read official notes."
+                        : "# v4.13.7\nStable Hono release. Fixes rendering in boundary components.",
+                    links: url === "https://hono.dev/releases" ? [source] : [],
                   })),
           errors:
             mode === "unreadable" || mode === "partial"
@@ -352,7 +457,7 @@ it("runs TinyFish search and fetch, saves cited findings, and delivers once acro
   expect(await value("delivery", "status")).toBe("sent");
   expect(sent()).toHaveLength(1);
   expect(sent()[0]!.body.text).toContain(source);
-  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(2);
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(3);
 });
 it("finishes an empty search without inventing a finding or sending mail", async () => {
   mode = "empty";
@@ -408,7 +513,7 @@ it("schedules a due task through the actual queue consumer", async () => {
   expect(Number(await value("task", "next_run_at"))).toBeGreaterThan(Date.now());
 });
 
-it("expands insufficient evidence within five searches and ten distinct page reads, forwarding filters", async () => {
+it("uses targeted follow-up searches and enforces five distinct page reads, forwarding filters", async () => {
   mode = "expand";
   await consume(await research.start("owner", taskId));
 
@@ -416,16 +521,17 @@ it("expands insufficient evidence within five searches and ten distinct page rea
   const reads = calls.filter((call) => call.host === "api.fetch.tinyfish.ai");
   const urls = reads.flatMap((call) => call.body.urls as string[]);
 
-  expect(searches).toHaveLength(5);
-  expect(reads).toHaveLength(2);
-  expect(urls).toHaveLength(10);
-  expect(new Set(urls).size).toBe(10);
+  expect(searches).toHaveLength(4);
+  expect(reads).toHaveLength(5);
+  expect(urls).toHaveLength(5);
+  expect(new Set(urls).size).toBe(5);
   expect(searches[0]!.params).toMatchObject({
     include_domains: "github.com",
     recency_minutes: "2880",
   });
   expect(searches[1]!.params).toMatchObject({ location: "TR", language: "tr" });
-  expect(reads[0]!.body.urls).toContain("https://hono.dev/Hono-official-notes/0");
+  expect(urls).toContain(source);
+  expect(urls).toContain("https://hono.dev/Hono-release-announcement/0");
   expect(await value("run", "coverage")).toBe("complete");
   expect(await value("finding", "count(*)")).toBe(1);
 });
@@ -484,7 +590,7 @@ it("defers a rate-limited check without failures, extra daily checks, or repeati
   await consume(id);
   expect(await value("run", "status")).toBe("completed");
   expect(await value("run", "checkpoint")).toBeNull();
-  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(2);
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(3);
   expect(await value("usage", "checks")).toBe(1);
 });
 it("resumes at page reading after the daily fetch budget becomes available", async () => {
@@ -608,3 +714,114 @@ it("retries homepage-only regional search results without filters to recover dir
   expect(searches[1]!.params).not.toHaveProperty("language");
   expect(await value("finding", "count(*)")).toBe(1);
 });
+
+it("lets the model select a useful search snippet beyond the first five results before reading", async () => {
+  mode = "snippet-selection";
+  await consume(await research.start("owner", taskId));
+  expect(await value("finding", "count(*)")).toBe(1);
+  expect(
+    calls
+      .filter((call) => call.host === "api.fetch.tinyfish.ai")
+      .flatMap((call) => call.body.urls as string[]),
+  ).toEqual([source]);
+
+  const requests = calls.filter((call) => call.host === "model.example.com");
+
+  expect(JSON.stringify(requests[1]?.body.messages)).toContain("Stable release");
+  expect(JSON.stringify(requests[1]?.body.messages)).toContain("Old tutorial");
+});
+it("bounds repeated tool requests without repeating provider calls", async () => {
+  mode = "repeated-tools";
+  await consume(await research.start("owner", taskId));
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(7);
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  expect(await value("run", "coverage")).toBe("limited");
+  expect(sent()).toHaveLength(0);
+});
+it("recovers an invalid assistant response within the same decision budget", async () => {
+  mode = "invalid-output";
+  await consume(await research.start("owner", taskId));
+  expect(await value("run", "status")).toBe("completed");
+  expect(await value("finding", "count(*)")).toBe(1);
+});
+it("does not fetch duplicate, private, or invented URLs requested by the model", async () => {
+  mode = "follow-read-limit";
+  await consume(await research.start("owner", taskId));
+  expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(1);
+  expect(await value("finding", "count(*)")).toBe(1);
+});
+
+it("follows an observed page link to verify a listing that search did not return directly", async () => {
+  mode = "linked-page";
+  await consume(await research.start("owner", taskId));
+  expect(await value("finding", "url")).toBe(source);
+  expect(
+    calls
+      .filter((call) => call.host === "api.fetch.tinyfish.ai")
+      .flatMap((call) => call.body.urls as string[]),
+  ).toEqual(["https://hono.dev/releases", source]);
+});
+it("resumes a partly completed tool batch without repeating its successful searches", async () => {
+  mode = "expand";
+
+  const budget = await createProviderBudget(createDb({ DB: d1 }), "test-search-key");
+
+  await budget.reserve("search", 29);
+
+  const id = await research.start("owner", taskId);
+
+  await consume(id);
+  expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(1);
+  expect(calls.filter((call) => call.host === "model.example.com")).toHaveLength(1);
+  await d1.prepare("DELETE FROM provider_usage").run();
+  await d1.prepare("UPDATE run SET retry_at = 0").run();
+  await consume(id);
+
+  const searches = calls.filter((call) => call.host === "api.search.tinyfish.ai");
+
+  expect(searches).toHaveLength(4);
+  expect(searches.filter((call) => call.params.query === "Hono stable release notes")).toHaveLength(
+    1,
+  );
+  expect(await value("finding", "count(*)")).toBe(1);
+  expect(await value("usage", "checks")).toBe(1);
+});
+
+it.each([false, true])(
+  "resumes a legacy checkpoint across deployment (page already read: %s)",
+  async (alreadyRead) => {
+    const id = await research.start("owner", taskId);
+    const legacy = {
+      next: "evaluate",
+      state: {
+        candidates: [
+          {
+            url: source,
+            title: "Hono release",
+            snippet: "Stable release",
+            query: "Hono stable release notes",
+            position: 1,
+          },
+        ],
+        sources: alreadyRead
+          ? [{ url: source, title: "Hono release", content: candidate.evidence }]
+          : [],
+        searched: ["https://api.search.tinyfish.ai?query=Hono+stable+release+notes"],
+        attempted: alreadyRead ? [source] : [],
+        result: { summary: "Previous pass lacked evidence", findings: [] },
+      },
+    };
+
+    await d1
+      .prepare("UPDATE run SET checkpoint = ? WHERE id = ?")
+      .bind(JSON.stringify(legacy), id)
+      .run();
+    await consume(id);
+    expect(await value("run", "status")).toBe("completed");
+    expect(await value("finding", "count(*)")).toBe(1);
+    expect(calls.filter((call) => call.host === "api.search.tinyfish.ai")).toHaveLength(0);
+    expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(
+      alreadyRead ? 0 : 1,
+    );
+  },
+);
