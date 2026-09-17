@@ -1,7 +1,8 @@
 import type { TaskInput } from "@radar/core";
 import { composeTask, type ComposeOptions } from "./compose";
 import { createResearch } from "./research";
-import { createResearchModel, type ModelConfig } from "./research-model";
+import { createResearchModel } from "./research-model";
+import type { ModelConfig } from "./model-client";
 import { createRetrieval } from "./retrieval";
 
 export { ResearchError, ResearchCancelled } from "./research-state";

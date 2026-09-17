@@ -14,7 +14,7 @@ You can edit, pause, or resume a task at any time. Connect Discord or verify you
 
 ## Run it yourself
 
-Radar is built with React Router, Hono, and LangGraph, and runs on Cloudflare Workers and D1.
+Radar is built with React Router, Hono, and AI SDK, and runs on Cloudflare Workers and D1.
 
 Local development requires Node.js 22.15+, pnpm 10, a TinyFish API key, and an OpenAI-compatible model provider for research. Email delivery uses Resend and is optional.
 

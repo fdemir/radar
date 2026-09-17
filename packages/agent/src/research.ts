@@ -1,4 +1,3 @@
-import { END, START, StateGraph, StateSchema } from "@langchain/langgraph";
 import type { TaskInput } from "@radar/core";
 import type { ResearchResult } from "@radar/core/research";
 import type { createResearchModel } from "./research-model";
@@ -46,8 +45,6 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
       deadline: started + researchLimits.durationMs,
     };
     const retrieval = sources(task.brief, signal, requests);
-    const nextNode = (state: ResearchState) => state.execution.phase;
-    const nodeNames = ["model", "tools", "finish"] as const;
 
     async function step(stage: ResearchStage, state: ResearchState) {
       signal.throwIfAborted();
@@ -61,80 +58,48 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
         throw new ResearchCancelled();
     }
 
-    const persist =
-      (action: (state: ResearchState) => Promise<ResearchState>) =>
-      async (state: ResearchState) => {
-        const updated = await action(state);
+    let state = checkpoint?.state ?? stateSchema.parse({});
+    let steps = 0;
+    const maxSteps = researchLimits.turns * (researchLimits.toolCalls + 1);
 
-        if (
-          options.saveCheckpoint &&
-          !(await options.saveCheckpoint({ version: 3, state: updated }))
-        )
-          throw new ResearchCancelled();
+    while (state.execution.phase !== "finish") {
+      signal.throwIfAborted();
 
-        return updated;
-      };
+      if (steps++ >= maxSteps) throw new ResearchError("Research exceeded its step budget.");
 
-    const graph = new StateGraph(new StateSchema(stateSchema.shape))
-      .addNode(
-        "model",
-        persist(async (state) => {
-          await step(
-            state.sources.length ? researchStages.evaluating : researchStages.searching,
-            state,
-          );
+      if (state.execution.phase === "model") {
+        await step(
+          state.sources.length ? researchStages.evaluating : researchStages.searching,
+          state,
+        );
 
-          const finalTurn =
-            state.turns >= researchLimits.turns - 1 ||
-            now() - started >= researchLimits.finalTurnAfterMs;
-          const decision = await model({
-            task,
-            previous,
-            state,
-            finalTurn,
-            today,
-            signal,
-            requests,
-          });
+        const finalTurn =
+          state.turns >= researchLimits.turns - 1 ||
+          now() - started >= researchLimits.finalTurnAfterMs;
+        const decision = await model({ task, previous, state, finalTurn, today, signal, requests });
 
-          return applyModelDecision(state, decision, finalTurn, task.language);
-        }),
-      )
-      .addNode(
-        "tools",
-        persist(async (state) => {
-          if (state.execution.phase !== "tools") throw new Error("No pending research tools.");
+        state = applyModelDecision(state, decision, finalTurn, task.language);
+      } else {
+        const toolState = { ...state, execution: state.execution };
+        const outcome = await executeResearchTool(toolState, {
+          brief: task.brief,
+          signal,
+          retrieval,
+          step,
+        });
 
-          const toolState = { ...state, execution: state.execution };
-          const outcome = await executeResearchTool(toolState, {
-            brief: task.brief,
-            signal,
-            retrieval,
-            step,
-          });
+        state = applyToolResult(toolState, outcome);
+      }
 
-          return applyToolResult(toolState, outcome);
-        }),
-      )
-      .addNode("finish", async (state) => {
-        await step(researchStages.finishing, state);
+      // Persist each model decision and each completed call before starting more work.
+      if (options.saveCheckpoint && !(await options.saveCheckpoint({ version: 3, state })))
+        throw new ResearchCancelled();
+    }
 
-        if (state.searchFailures && state.searchFailures === state.searched.length)
-          throw new ResearchError("Web search is unavailable. Try again later.");
+    await step(researchStages.finishing, state);
 
-        return {};
-      })
-      .addConditionalEdges(START, () => checkpoint?.state.execution.phase ?? "model", [
-        ...nodeNames,
-      ])
-      .addConditionalEdges("model", nextNode, [...nodeNames])
-      .addConditionalEdges("tools", nextNode, [...nodeNames])
-      .addEdge("finish", END)
-      .compile();
-    const state = await graph.invoke(checkpoint?.state ?? {}, { signal, recursionLimit: 96 });
-
-    if (state.execution.phase !== "finish")
-      throw new ResearchError("Research did not finish. Try again.");
+    if (state.searchFailures && state.searchFailures === state.searched.length)
+      throw new ResearchError("Web search is unavailable. Try again later.");
 
     return {
       ...state.execution.result,

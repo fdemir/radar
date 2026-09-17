@@ -18,8 +18,6 @@ import {
   type ResearchState,
 } from "./research-state";
 
-export type { ModelConfig } from "./model-client";
-
 const researchTools = {
   searchWeb: tool({
     description:
@@ -164,7 +162,7 @@ export function createResearchModel(config: ModelConfig, request: typeof fetch =
       if (reply.toolCalls.length) {
         const calls = z
           .array(toolCallSchema)
-          .max(10)
+          .max(researchLimits.toolCalls)
           .parse(
             reply.toolCalls.map((call) =>
               parseToolCall(call.toolCallId, call.toolName, call.input),

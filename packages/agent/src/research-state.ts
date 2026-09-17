@@ -12,6 +12,7 @@ export class ResearchCancelled extends Error {}
 
 export const researchLimits = {
   turns: 7,
+  toolCalls: 10,
   searches: 5,
   pageReads: 10,
   followupSearches: 2,
@@ -61,7 +62,7 @@ export const messageSchema = z.discriminatedUnion("role", [
   z.object({
     role: z.literal("assistant"),
     content: z.string(),
-    calls: z.array(toolCallSchema).max(10),
+    calls: z.array(toolCallSchema).max(researchLimits.toolCalls),
   }),
   z.object({
     role: z.literal("tool"),
@@ -84,7 +85,10 @@ export const stateSchema = z.object({
   execution: z
     .discriminatedUnion("phase", [
       z.object({ phase: z.literal("model") }),
-      z.object({ phase: z.literal("tools"), pending: z.array(toolCallSchema).min(1).max(10) }),
+      z.object({
+        phase: z.literal("tools"),
+        pending: z.array(toolCallSchema).min(1).max(researchLimits.toolCalls),
+      }),
       z.object({ phase: z.literal("finish"), result: researchResultSchema }),
     ])
     .default({ phase: "model" }),
