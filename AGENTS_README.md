@@ -30,6 +30,8 @@ The model must support Chat Completions with JSON responses. The default is `gpt
 
 Email is optional. Set `RESEND_API_KEY` and `EMAIL_FROM` to a sender verified in Resend, then restart. Without them, research works but email delivery, verification, and password recovery stay unavailable. Verify your account email in Settings before receiving findings. Restart the local API after changing environment values.
 
+Task notification channels follow account preferences in Settings. The legacy task `email` field remains for stored-data compatibility and does not control delivery.
+
 ## Task lifecycle
 
 - Sign up and sign in with a username and password.

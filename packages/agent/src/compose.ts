@@ -11,7 +11,6 @@ const briefSchema = z.object({
   frequency: taskInputSchema.shape.frequency,
   time: taskInputSchema.shape.time,
   language: taskInputSchema.shape.language,
-  email: taskInputSchema.shape.email,
 });
 const partialReplySchema = z.object({ reply: z.string().max(2000) });
 const chunkSchema = z.object({
@@ -38,6 +37,7 @@ export async function composeTask(
     AbortSignal.timeout(65_000),
     ...(options.signal ? [options.signal] : []),
   ]);
+  const { email: _legacyEmail, ...taskDetails } = task;
   const response = await fetch(`${config.OPENAI_BASE_URL.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
@@ -52,11 +52,11 @@ export async function composeTask(
       messages: [
         {
           role: "system",
-          content: `You help create a recurring web research task. Update the brief from the existing details, conversation and newest message. Keep all existing constraints unless the user changes them. Do not invent a location, budget or event. Ask one short question if essential information is missing. Otherwise briefly confirm the task is ready for review. The brief describes what counts as a match; do not claim you searched or activated a task. Reply in the user's language, with short paragraphs or a short list. Preserve the selected result language, time and email setting unless asked to change them. Use simple English for English replies. Do not use em dashes. Return only a JSON object matching this schema: ${JSON.stringify(z.toJSONSchema(briefSchema))}. Write the reply property FIRST so the user can read it while the other fields are generated.`,
+          content: `You help create a recurring web research task. Update the brief from the existing details, conversation and newest message. Keep all existing constraints unless the user changes them. Do not invent a location, budget or event. Ask one short question if essential information is missing. Otherwise briefly confirm the task is ready for review. The brief describes what counts as a match; do not claim you searched or activated a task. Reply in the user's language, with short paragraphs or a short list. Preserve the selected result language and time unless asked to change them. Notification channels follow the user’s account preferences in Settings. Do not ask the user to choose notification channels during task setup; direct notification preference requests to Settings. Use simple English for English replies. Do not use em dashes. Return only a JSON object matching this schema: ${JSON.stringify(z.toJSONSchema(briefSchema))}. Write the reply property FIRST so the user can read it while the other fields are generated.`,
         },
         {
           role: "user",
-          content: `Return JSON for this data:\n${JSON.stringify({ task, message })}`,
+          content: `Return JSON for this data:\n${JSON.stringify({ task: taskDetails, message })}`,
         },
       ],
       response_format: { type: "json_object" },

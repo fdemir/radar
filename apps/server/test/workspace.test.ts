@@ -233,7 +233,7 @@ const result = {
 };
 
 it("claims a run once and saves findings and one email together, deduplicating later runs", async () => {
-  const taskId = await create({ ...input, status: "active" });
+  const taskId = await create({ ...input, status: "active", email: false });
   const { research, userId } = await researcher();
 
   await d1.prepare("UPDATE user SET email_verified = 1 WHERE id = ?").bind(userId).run();

@@ -35,7 +35,7 @@ async function deliver(env: WorkerEnv) {
     .prepare(
       `SELECT d.id, d.target, d.run_id AS runId, d.task_id AS taskId, t.title
     FROM delivery d JOIN task t ON t.id = d.task_id JOIN user u ON u.id = t.user_id LEFT JOIN preference p ON p.user_id = u.id
-    WHERE d.status = 'pending' AND d.next_attempt <= ? AND t.status = 'active' AND t.email = 1
+    WHERE d.status = 'pending' AND d.next_attempt <= ? AND t.status = 'active'
     AND u.email_verified = 1 AND u.email = d.target AND coalesce(p.email_enabled, 1) = 1 LIMIT 20`,
     )
     .bind(now)
@@ -46,7 +46,7 @@ async function deliver(env: WorkerEnv) {
       .prepare(
         `UPDATE delivery SET status = 'sending', attempts = attempts + 1, next_attempt = ?
       WHERE id = ? AND status = 'pending' AND EXISTS (SELECT 1 FROM task t JOIN user u ON u.id = t.user_id
-        LEFT JOIN preference p ON p.user_id = u.id WHERE t.id = delivery.task_id AND t.status = 'active' AND t.email = 1
+        LEFT JOIN preference p ON p.user_id = u.id WHERE t.id = delivery.task_id AND t.status = 'active'
         AND u.email_verified = 1 AND u.email = delivery.target AND coalesce(p.email_enabled, 1) = 1)
       RETURNING attempts`,
       )
@@ -78,7 +78,7 @@ async function deliver(env: WorkerEnv) {
         .prepare(
           `SELECT d.id FROM delivery d JOIN task t ON t.id = d.task_id JOIN user u ON u.id = t.user_id
         LEFT JOIN preference p ON p.user_id = u.id WHERE d.id = ? AND d.status = 'sending' AND t.status = 'active'
-        AND t.email = 1 AND u.email_verified = 1 AND u.email = d.target AND coalesce(p.email_enabled, 1) = 1`,
+        AND u.email_verified = 1 AND u.email = d.target AND coalesce(p.email_enabled, 1) = 1`,
         )
         .bind(item.id)
         .first();

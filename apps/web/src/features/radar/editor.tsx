@@ -50,7 +50,7 @@ export default function Editor() {
             status: "draft",
             time: "09:00",
             language: /türkçe|turkish/i.test(prompt) ? "Türkçe" : state.preferences.language,
-            email: state.preferences.emailEnabled,
+            email: true,
             failures: 0,
             nextRunAt: null,
             messages: [],

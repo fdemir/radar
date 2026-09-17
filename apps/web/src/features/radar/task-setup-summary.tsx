@@ -10,7 +10,6 @@ import { Button } from "@radar/ui/components/button";
 import { Input } from "@radar/ui/components/input";
 import { Label } from "@radar/ui/components/label";
 import { NativeSelect, NativeSelectOption } from "@radar/ui/components/native-select";
-import { Switch } from "@radar/ui/components/switch";
 import { Textarea } from "@radar/ui/components/textarea";
 import {
   categorySchema,
@@ -20,7 +19,7 @@ import {
   type Task,
 } from "@radar/core";
 
-type Field = "title" | "brief" | "category" | "schedule" | "language" | "email";
+type Field = "title" | "brief" | "category" | "schedule" | "language";
 
 export function TaskSetupSummary({
   task,
@@ -47,12 +46,6 @@ export function TaskSetupSummary({
       complete: true,
     },
     { key: "language", label: "Results in", value: task.language, complete: true },
-    {
-      key: "email",
-      label: "Email notifications",
-      value: task.email ? "Email on" : "Email off",
-      complete: true,
-    },
   ];
 
   function edit(field: Field) {
@@ -194,16 +187,6 @@ export function TaskSetupSummary({
                           />
                         </Label>
                       </div>
-                    )}
-                    {field.key === "email" && (
-                      <Label>
-                        Email
-                        <Switch
-                          aria-label="Task email notifications"
-                          checked={draft.email}
-                          onCheckedChange={(email) => setDraft({ ...draft, email })}
-                        />
-                      </Label>
                     )}
                     {error && (
                       <p className="text-xs text-destructive" role="alert">

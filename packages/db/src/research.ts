@@ -145,7 +145,7 @@ export function createResearch(db: Database) {
           `INSERT OR IGNORE INTO delivery (id, run_id, task_id, target, next_attempt)
         SELECT ?, r.id, t.id, u.email, ? FROM run r JOIN task t ON t.id = r.task_id JOIN user u ON u.id = t.user_id
         LEFT JOIN preference p ON p.user_id = u.id WHERE r.id = ? AND r.lease = ? AND r.status = 'completed'
-        AND r.findings > 0 AND t.status = 'active' AND t.email = 1 AND u.email_verified = 1 AND coalesce(p.email_enabled, 1) = 1
+        AND r.findings > 0 AND t.status = 'active' AND u.email_verified = 1 AND coalesce(p.email_enabled, 1) = 1
       `,
         )
         .bind(crypto.randomUUID(), now, id, lease),

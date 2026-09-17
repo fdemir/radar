@@ -317,6 +317,8 @@ it("composes tasks using the compatible model inside Workers", async () => {
   });
 });
 it("runs TinyFish search and fetch, saves cited findings, and delivers once across queue duplicates", async () => {
+  await d1.prepare("UPDATE task SET email = 0 WHERE id = ?").bind(taskId).run();
+
   const id = await research.start("owner", taskId);
 
   await consume(id);
@@ -557,7 +559,7 @@ it("delivers a persisted welcome from the scheduler without an interaction token
 });
 
 it("sends Discord findings through the queue consumer independently of email", async () => {
-  await d1.prepare("UPDATE task SET email = 0 WHERE id = ?").bind(taskId).run();
+  await d1.prepare("INSERT INTO preference (user_id, email_enabled) VALUES ('owner', 0)").run();
   await d1
     .prepare(
       "INSERT INTO discord_connection (id, user_id, discord_user_id, username, status, created_at) VALUES ('discord', 'owner', '123456789', 'owner', 'ready', 0)",
