@@ -49,7 +49,8 @@ let mode:
   | "unreadable"
   | "unchanged"
   | "search-rate-limit"
-  | "bad-evidence";
+  | "bad-evidence"
+  | "homepage-results";
 let calls: {
   host: string;
   path: string;
@@ -128,9 +129,14 @@ beforeAll(async () => {
             ? {
                 summary: "One stable release.",
                 needsMoreEvidence:
-                  mode === "expand" &&
-                  calls.filter((call) => call.host === "api.fetch.tinyfish.ai").length === 1,
+                  mode === "homepage-results" ||
+                  (mode === "expand" &&
+                    calls.filter((call) => call.host === "api.fetch.tinyfish.ai").length === 1),
                 findings:
+                  (mode === "homepage-results" &&
+                    data.sources.every(
+                      (item: { url: string }) => new URL(item.url).pathname === "/",
+                    )) ||
                   mode === "unchanged" ||
                   (mode === "expand" &&
                     calls.filter((call) => call.host === "api.fetch.tinyfish.ai").length === 1)
@@ -166,7 +172,14 @@ beforeAll(async () => {
                           },
                           { query: "Hono official notes", location: "TR", language: "tr" },
                         ]
-                    : [{ query: "Hono stable release notes" }],
+                    : [
+                        {
+                          query: "Hono stable release notes",
+                          ...(mode === "homepage-results"
+                            ? { location: "TR", language: "tr" }
+                            : {}),
+                        },
+                      ],
               };
 
         return json({ choices: [{ message: { content: JSON.stringify(content) } }] });
@@ -185,6 +198,13 @@ beforeAll(async () => {
           });
 
         if (mode === "search-error") return json({ error: "Unavailable" }, 503);
+
+        if (mode === "homepage-results" && url.searchParams.has("location"))
+          return json({
+            results: [
+              { url: "https://github.com/", title: "Hono release", snippet: "Official release" },
+            ],
+          });
 
         return json({
           results:
@@ -214,7 +234,8 @@ beforeAll(async () => {
       }
 
       if (url.hostname === "api.fetch.tinyfish.ai") {
-        if (mode !== "expand" && mode !== "partial") expect(body.urls).toEqual([source]);
+        if (mode !== "expand" && mode !== "partial" && mode !== "homepage-results")
+          expect(body.urls).toEqual([source]);
 
         expect(body.ttl).toBe(0);
 
@@ -573,4 +594,17 @@ it("sends Discord findings through the queue consumer independently of email", a
   expect(await value("discord_delivery", "status")).toBe("sent");
   expect(calls.filter((call) => call.path.endsWith("/messages"))).toHaveLength(1);
   expect(sent()).toHaveLength(0);
+});
+
+it("retries homepage-only regional search results without filters to recover direct source URLs", async () => {
+  mode = "homepage-results";
+  await consume(await research.start("owner", taskId));
+
+  const searches = calls.filter((call) => call.host === "api.search.tinyfish.ai");
+
+  expect(searches).toHaveLength(2);
+  expect(searches[0]!.params).toMatchObject({ location: "TR", language: "tr" });
+  expect(searches[1]!.params).not.toHaveProperty("location");
+  expect(searches[1]!.params).not.toHaveProperty("language");
+  expect(await value("finding", "count(*)")).toBe(1);
 });

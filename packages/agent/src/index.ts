@@ -184,7 +184,7 @@ export function createAgent(config: AgentConfig) {
       }
 
       const queryInstructions =
-        "Use precise queries for verifiable primary sources. Set location and search language only when the brief requires them, not from the result language. Use include_domains only for explicitly requested or clearly authoritative sites. Use recency_minutes only for recent-news or new-release discovery, with an overlapping window to avoid missing late-indexed pages. Never use publication recency for upcoming events or current prices. Omit filters when unsure. Do not answer the task.";
+        "Use short, natural keyword queries for verifiable sources. Keep each query focused on the subject and location, not the list of fields requested for the final report. Avoid Boolean OR chains, parentheses, exclusion terms, and multiple site: operators; use separate queries for alternatives. For a country-specific task, use both a local-language query and an English query when useful. For job searches, include reputable job boards and employer career pages; do not require posting dates or deadlines to appear in search terms. Set location and search language only when the brief requires them, not from the result language. Use include_domains only for explicitly requested or clearly authoritative sites. Use recency_minutes only for recent-news or new-release discovery, with an overlapping window to avoid missing late-indexed pages. Never use publication recency for upcoming events or current prices. Omit filters when unsure. Do not answer the task.";
       const evaluationSchema = researchResultSchema.extend({
         findings: z
           .array(candidateSchema.extend({ evidence: z.string().trim().min(12).max(600) }))
@@ -417,6 +417,25 @@ export function createAgent(config: AgentConfig) {
               6,
               state.sources.map((source) => source.url),
             );
+
+            // Some regional search responses collapse deep links to domain homepages.
+            // Retry the same location-bearing query text without API locale filters.
+            const homepageOnly =
+              state.candidates.length > 0 &&
+              state.candidates.every((source) => {
+                const url = publicUrl(source.url);
+
+                return url && new URL(url).pathname === "/" && !new URL(url).search;
+              });
+            const unfiltered = homepageOnly
+              ? state.queries
+                  .filter((query) => query.location || query.language)
+                  .map(({ location: _location, language: _language, ...query }) => query)
+                  .filter((query) => !state.searched.includes(searchUrl(query, task.brief).href))
+                  .slice(0, 5 - state.searched.length)
+              : [];
+
+            if (unfiltered.length) return { queries: unfiltered, expanded: true };
 
             const refined = await model(
               z.object({

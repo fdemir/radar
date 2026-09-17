@@ -228,11 +228,13 @@ export default function Detail() {
                     ? "Your check is waiting and will resume automatically."
                     : running
                       ? "Your check is in progress."
-                      : runs[0]?.coverage === "limited"
-                        ? "Research was incomplete. See run history for details."
-                        : runs[0]?.status === "completed"
-                          ? "No new matches in the sources checked."
-                          : "Run a check to find your first result."}
+                      : runs[0]?.status === "failed"
+                        ? "The last check failed. No results were saved. Try Run now."
+                        : runs[0]?.coverage === "limited"
+                          ? "Research was incomplete. See run history for details."
+                          : runs[0]?.status === "completed"
+                            ? "No new matches in the sources checked."
+                            : "Run a check to find your first result."}
                 </Empty>
               )}
               {!running && runs[0] && (

@@ -45,7 +45,7 @@ export function searchUrl(query: z.infer<typeof searchQuerySchema>, brief: strin
 }
 
 // Rank inexpensive search snippets before spending the page-reading budget.
-// Penalize repeated queries and domains so one result list cannot fill every slot.
+// Keep diversity penalties bounded so unrelated domains cannot displace relevant pages.
 export function selectSources(candidates: SearchSource[], brief: string, excluded: string[]) {
   const terms = [...new Set(brief.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])];
   const seen = new Set(excluded);
@@ -71,8 +71,8 @@ export function selectSources(candidates: SearchSource[], brief: string, exclude
       return (
         relevance * 3 +
         1 / Math.max(1, source.position) -
-        (domains.get(new URL(source.url).hostname) ?? 0) * 2 -
-        (queries.get(source.query) ?? 0) * 2
+        Math.min(domains.get(new URL(source.url).hostname) ?? 0, 1) * 0.35 -
+        Math.min(queries.get(source.query) ?? 0, 1) * 0.15
       );
     };
 
