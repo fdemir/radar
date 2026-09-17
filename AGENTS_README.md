@@ -1,0 +1,113 @@
+# Radar — technical reference
+
+Read this document when setting up local development, changing research or scheduling behavior, working on shared UI, running checks, or deploying Radar. For a product overview, see [README.md](README.md).
+
+Built with React Router, Hono, Better Auth, Drizzle, Cloudflare D1 and Workers, LangGraph, TinyFish, and an OpenAI-compatible model. The monorepo uses pnpm, Turborepo, Alchemy, and Oxlint.
+
+## Local setup
+
+Use Node.js 22.15 or later and pnpm 10.
+
+```sh
+pnpm install
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
+pnpm dev:local
+```
+
+Open [localhost:5174](http://localhost:5174). The API runs on port 3000. Local accounts, tasks, queues, and the auth secret persist in the ignored `.cache/local` folder. Migrations run automatically. No Cloudflare account is needed for local development.
+
+Add these values to `apps/server/.env` to enable research:
+
+| Variable           | Purpose                               |
+| ------------------ | ------------------------------------- |
+| `OPENAI_API_KEY`   | Model provider key                    |
+| `OPENAI_BASE_URL`  | Compatible API URL, including `/v1`   |
+| `OPENAI_MODEL`     | Model available through your provider |
+| `TINYFISH_API_KEY` | TinyFish Search and Fetch key         |
+
+The model must support Chat Completions with JSON responses. The default is `gpt-5.6-luna`; change it if your provider uses another model name.
+
+Email is optional. Set `RESEND_API_KEY` and `EMAIL_FROM` to a sender verified in Resend, then restart. Without them, research works but email delivery, verification, and password recovery stay unavailable. Verify your account email in Settings before receiving findings. Restart the local API after changing environment values.
+
+## Task lifecycle
+
+- Sign up and sign in with a username and password.
+- Create a task through chat or edit its details directly. Drafts do not run.
+- Activate a task to run its first check. Pause, resume, edit, or delete it from the task screen.
+- Check hourly, daily, every three days, or weekly in your chosen timezone. Local schedules run while `pnpm dev:local` is running; deployed schedules run without an open browser.
+- Read findings, save them, and inspect run history and sources. The landing page contains clearly marked sample findings; account workspaces use the database.
+- Receive one email summary when a run adds findings. Duplicate event/version pairs do not create another finding or email.
+
+### Research and evidence
+
+Research starts with up to two search queries and five pages. It ranks search snippets across queries and domains before reading, and selects date, country, language, and domain filters from the brief. If evidence is insufficient or some sources cannot be read, it can expand once, within a total budget of five searches, ten pages, and five findings. Relevant sources with no new events do not trigger extra research. Incomplete research is labeled separately from no new matches. Model output must cite a page the run actually read and include a short verbatim source excerpt. Quotes are checked against the supplied page text before saving; unsupported quotes are omitted. Finding cards and details offer an expandable Source excerpt. Older findings remain readable without an excerpt. Each run has a three-minute research deadline; the scheduler recovers stuck work after ten minutes. Three consecutive failures pause the task.
+
+### Account limits and cancellation
+
+Each account can have five active tasks and thirty checks per UTC day. Manual checks have a ten-second cooldown. Editing or pausing a task cancels its old work and pending mail. A provider request that has already started may still finish. Delivery retries use a stable Resend idempotency key.
+
+### Provider limits and recovery
+
+All users sharing a TinyFish key share a durable provider budget: Search allows 30 requests per rolling minute and 500 per rolling hour; Fetch allows 150 URLs per rolling minute and 1,000 per rolling day. These conservative rolling windows follow the published [free limits](https://www.tinyfish.ai/pricing). Requests reserve capacity atomically before calling the provider. Rate limits put the existing check into a visible waiting state, honor Retry-After, and resume automatically through the scheduler without spending another daily check or increasing the failure count. Completed research steps are checkpointed, so waiting before page reading does not repeat searches. Temporary page content is removed when a run completes, fails, or is cancelled.
+
+### Discord
+
+Discord is deferred. There is no Discord login or bot in this version.
+
+## Project layout
+
+| Path                     | Responsibility                                                  |
+| ------------------------ | --------------------------------------------------------------- |
+| `apps/web`               | Letters UI and public examples                                  |
+| `apps/server`            | Hono API, authentication, task ownership                        |
+| `apps/worker`            | Scheduled checks, queue consumption, email delivery             |
+| `packages/agent`         | LangGraph research, TinyFish, model calls                       |
+| `packages/core`          | Shared validation and schedule rules                            |
+| `packages/db`            | D1 schema, migrations, queries, atomic finding delivery records |
+| `packages/auth`          | Better Auth configuration                                       |
+| `packages/notifications` | Resend adapter                                                  |
+| `packages/ui`            | Shared components and styles                                    |
+| `packages/infra`         | Alchemy Cloudflare resources                                    |
+
+## UI components
+
+Shared UI components live in `packages/ui`. From the repository root, add components with `pnpm --filter @radar/ui exec shadcn add <component> -c ../../apps/web`. Preview changes with `--dry-run`; review before overwriting a customized component. Keep both `components.json` files on the same style and base library.
+
+Use shadcn components for controls and Tailwind utilities for layout. Keep theme tokens in `packages/ui/src/styles/globals.css`. For links styled as buttons, use `buttonVariants` on `Link` or `a` so they retain their link semantics. See the [shadcn monorepo guide](https://ui.shadcn.com/docs/monorepo) and [button documentation](https://ui.shadcn.com/docs/components/base/button#as-link).
+
+## Checks
+
+Use `pnpm format` to format the code and `pnpm format:check` to check it without changing files.
+`pnpm lint` runs the format check before Oxlint. `pnpm lint:fix` fixes lint issues and formats the code.
+All packages share the root Prettier settings: two spaces, double quotes, semicolons, and a 100-character print width.
+Generated files, database migrations, the lockfile, and ignored files are excluded.
+Oxlint also requires blank lines around control flow, functions, and separate declaration blocks.
+
+```sh
+pnpm lint
+pnpm check-types
+pnpm test
+pnpm build
+```
+
+Tests use isolated local D1 databases and the Workers runtime. Provider responses are controlled in integration tests; tests do not send real emails or require service keys.
+
+Generate migrations after changing the database schema with `pnpm db:generate`. Environment schemas are checked in; generated accessors can be refreshed with `pnpm env:generate`. Keep keys in ignored environment files.
+
+## Cloudflare deployment
+
+Configure your Cloudflare profile with `cd packages/infra && pnpm exec alchemy profile edit`. Keep production settings in the ignored `packages/infra/.env.production.local` file, separate from local development. Set `NODE_ENV=production`, a separate persistent `BETTER_AUTH_SECRET` of at least 32 characters, and the service values above.
+
+The web worker is named `radar-<stage>`. Production uses `radar.fdemir.dev` for the web app and `radar-api.fdemir.dev` for the API. Set `CORS_ORIGIN=https://radar.fdemir.dev`. The `fdemir.dev` zone must be active in the Cloudflare account. Alchemy manages both custom domains and their HTTPS certificates.
+
+```sh
+cd packages/infra
+pnpm exec alchemy deploy --stage production --env-file .env.production.local
+```
+
+Alchemy provisions D1, applies migrations, and creates the API, web app, research worker, queue consumer, and a one-minute scheduler. Its first deployment also creates a shared state store in the Cloudflare account. Local accounts and tasks are not copied to production. The web app and API share the `fdemir.dev` site so sign-in cookies work without third-party cookies.
+
+Deployments copy the SQL files listed in the Drizzle journal into an ignored `.alchemy/migrations` folder. Alchemy applies these unchanged files and tracks production migrations. Keep generating schema changes with `pnpm db:generate`.
+
+Cloud deployment must be verified with your Cloudflare account. Local checks do not verify cloud credentials, domains, provider quotas, or live email delivery.
