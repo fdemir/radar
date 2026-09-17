@@ -96,6 +96,18 @@ async function enqueue(id: string) {
   await d1.prepare("UPDATE delivery SET id = ? WHERE run_id = ?").bind(id, runId).run();
 }
 
+it("uses the finding headline as the subject and retains its evidence link", async () => {
+  await enqueue("result-first");
+  await deliver();
+  expect(send).toHaveBeenCalledExactlyOnceWith(
+    "owner@example.com",
+    "Release",
+    expect.stringContaining("Release\nA stable release\nhttps://example.com/release"),
+    expect.any(String),
+    expect.stringContaining("<h2"),
+  );
+});
+
 it("honors a backoff established after another sender selected the same due mail", async () => {
   await enqueue("a-first");
   await enqueue("b-second");

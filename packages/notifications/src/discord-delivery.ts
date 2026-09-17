@@ -1,5 +1,6 @@
 import type { Database } from "@radar/db";
 import { DiscordError, type Discord } from "./discord";
+import { discordFindings } from "./finding-message";
 
 // Never automatically resend an ambiguous message POST: Discord nonce deduplication
 // only lasts a few minutes, so it cannot protect retries after a long outage.
@@ -73,7 +74,7 @@ export async function deliverDiscord(
       if (claimed.runId) {
         const findings = await raw
           .prepare(
-            "SELECT f.title, f.summary, f.url, t.id AS taskId, t.title AS taskTitle FROM finding f JOIN task t ON t.id = f.task_id WHERE f.run_id = ? LIMIT 5",
+            "SELECT f.title, f.summary, f.url, t.id AS taskId, t.language FROM finding f JOIN task t ON t.id = f.task_id WHERE f.run_id = ? ORDER BY f.rowid LIMIT 5",
           )
           .bind(claimed.runId)
           .all<{
@@ -81,7 +82,7 @@ export async function deliverDiscord(
             summary: string;
             url: string;
             taskId: string;
-            taskTitle: string;
+            language: string;
           }>();
         const first = findings.results[0];
 
@@ -95,18 +96,11 @@ export async function deliverDiscord(
           continue;
         }
 
-        const summary = findings.results
-          .map(
-            (item) =>
-              `${item.title.slice(0, 90)}\n${item.summary.slice(0, 160)}\n${item.url.length <= 150 ? item.url : "Source available in Radar"}`,
-          )
-          .join("\n\n");
-
-        content =
-          `${first.taskTitle}: ${findings.results.length} new findings\n\n${summary}`.slice(
-            0,
-            1750,
-          ) + `\n\nOpen in Radar: ${origin}/tasks/${first.taskId}`;
+        content = discordFindings(
+          findings.results,
+          `${origin}/tasks/${first.taskId}`,
+          first.language,
+        );
       }
 
       const channelId = connection.channelId ?? (await discord.openDm(connection.userId));

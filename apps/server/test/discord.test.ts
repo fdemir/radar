@@ -369,6 +369,9 @@ it("delivers new findings with email disabled, deduplicates work and adds an own
   expect(sends()).toHaveLength(2);
   expect(sends()[1]!.body.content).toContain(`/tasks/${task}`);
   expect(sends()[1]!.body.content).toContain("https://hono.dev");
+  expect(sends()[1]!.body.content).toBe(
+    `**A new stable release**\nThe new release is available.\nhttps://hono.dev\n\n[Take a look in Radar](${config.CORS_ORIGIN}/tasks/${task})`,
+  );
   expect(await d1.prepare("SELECT count(*) FROM delivery").first("count(*)")).toBe(0);
 
   const workspace = workspaceSchema.parse(await (await request("/api/workspace")).json());

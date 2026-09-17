@@ -1,5 +1,6 @@
 import { END, START, StateGraph, StateSchema } from "@langchain/langgraph";
 import type { TaskInput } from "@radar/core";
+import { plainText } from "@radar/core/emphasis";
 import { publicUrl, type ResearchResult } from "@radar/core/research";
 import type z from "zod";
 import { type createResearchModel, decisionSchema } from "./research-model";
@@ -137,6 +138,8 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
 
             return {
               ...item,
+              title: plainText(item.title),
+              reason: plainText(item.reason),
               url: source.url,
               evidence:
                 evidence.length >= 12 && normalize(source.content).includes(evidence)
@@ -153,7 +156,7 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
           return {
             turns,
             messages,
-            result: { summary: result.summary, findings },
+            result: { summary: plainText(result.summary), findings },
             limited:
               state.limited ||
               result.needsMoreEvidence ||

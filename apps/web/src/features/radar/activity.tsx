@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { Button, buttonVariants } from "@radar/ui/components/button";
 import { Card } from "@radar/ui/components/card";
 import { useWorkspace } from "./context";
-import { Empty, Modal, PageTitle, WorkspacePage } from "./components";
+import { Empty, FindingSummary, Modal, PageTitle, WorkspacePage } from "./components";
 import { formatDate, type Notice } from "./model";
 
 export default function Activity() {
@@ -60,7 +60,7 @@ export default function Activity() {
         <Modal title={`${selected.channel} preview`} close={() => setSelected(null)}>
           <div className="space-y-3 rounded-xl bg-muted p-6">
             <h3>{finding?.title}</h3>
-            <p>{finding?.summary}</p>
+            <p>{finding && <FindingSummary text={finding.summary} />}</p>
             {finding && (
               <a
                 href={finding.url}

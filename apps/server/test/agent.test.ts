@@ -54,6 +54,54 @@ it("stops before calling providers when progress reports cancellation", async ()
   expect(read).not.toHaveBeenCalled();
 });
 
+it("preserves finding emphasis while keeping headlines and run history plain", async () => {
+  const { research, model } = workflow();
+
+  model.mockResolvedValue({
+    role: "assistant",
+    content: JSON.stringify({
+      summary: "Hono **5.0** is available.",
+      findings: [
+        {
+          title: "Hono **5.0** released",
+          summary: "Includes **streaming support**.",
+          reason: "A **stable** release.",
+          evidence: "Hono 5.0 is stable and includes streaming support.",
+          url: "https://hono.dev/release",
+          eventKey: "hono-release",
+          version: "5.0",
+        },
+      ],
+      needsMoreEvidence: false,
+    }),
+  });
+
+  const result = await research(task, [], async () => true, {
+    checkpoint: {
+      version: 2,
+      next: "model",
+      state: stateSchema.parse({
+        searched: ["Hono releases"],
+        sources: [
+          {
+            url: "https://hono.dev/release",
+            title: "Hono releases",
+            content: "Hono 5.0 is stable and includes streaming support.",
+          },
+        ],
+      }),
+    },
+  });
+
+  expect(result.summary).toBe("Hono 5.0 is available.");
+  expect(result.findings[0]).toMatchObject({
+    title: "Hono 5.0 released",
+    summary: "Includes **streaming support**.",
+    reason: "A stable release.",
+    evidence: "Hono 5.0 is stable and includes streaming support.",
+  });
+});
+
 it("does not execute a model's tool request after losing its checkpoint lease", async () => {
   const { research, model, search } = workflow();
 

@@ -24,6 +24,7 @@ import {
 } from "@radar/ui/components/empty";
 import { Input } from "@radar/ui/components/input";
 import { cn } from "@radar/ui/lib/utils";
+import { inlineEmphasis } from "@radar/core/emphasis";
 import radarLogo from "@/assets/radar.svg";
 import { formatDate, type Category, type Finding, type Task } from "./model";
 import { useWorkspace } from "./context";
@@ -34,6 +35,12 @@ export function Brand() {
       <img src={radarLogo} alt="" width={28} height={28} className="size-7 shrink-0" />
       radar
     </span>
+  );
+}
+
+export function FindingSummary({ text }: { text: string }) {
+  return inlineEmphasis(text).map((part, index) =>
+    part.bold ? <strong key={index}>{part.text}</strong> : part.text,
   );
 }
 
@@ -265,7 +272,7 @@ export function FindingModal({ item, close }: { item: Finding; close: () => void
   const current = state.findings.find((f) => f.id === item.id) ?? item;
 
   return (
-    <Modal title={item.title} description={item.summary} close={close}>
+    <Modal title={item.title} description={<FindingSummary text={item.summary} />} close={close}>
       <div className="space-y-2 rounded-xl bg-muted p-5">
         <h3 className="text-sm">Why it matches</h3>
         <p>{item.reason}</p>

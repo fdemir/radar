@@ -373,6 +373,9 @@ importers:
 
   packages/notifications:
     dependencies:
+      '@radar/core':
+        specifier: workspace:*
+        version: link:../core
       '@radar/db':
         specifier: workspace:*
         version: link:../db

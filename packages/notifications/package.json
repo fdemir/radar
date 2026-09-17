@@ -13,6 +13,7 @@
     "typescript": "catalog:"
   },
   "dependencies": {
+    "@radar/core": "workspace:*",
     "@radar/db": "workspace:*"
   }
 }

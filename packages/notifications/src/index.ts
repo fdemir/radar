@@ -5,7 +5,7 @@ export function createEmail(config: EmailConfig) {
 
   return {
     available,
-    async send(to: string, subject: string, text: string, key: string) {
+    async send(to: string, subject: string, text: string, key: string, html?: string) {
       if (!available) throw new Error("Email is not available yet.");
 
       const response = await fetch("https://api.resend.com/emails", {
@@ -15,7 +15,7 @@ export function createEmail(config: EmailConfig) {
           "Content-Type": "application/json",
           "Idempotency-Key": key,
         },
-        body: JSON.stringify({ from: config.EMAIL_FROM, to: [to], subject, text }),
+        body: JSON.stringify({ from: config.EMAIL_FROM, to: [to], subject, text, html }),
         signal: AbortSignal.timeout(20_000),
         redirect: "manual",
       });
