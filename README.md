@@ -45,7 +45,9 @@ Each account can have five active tasks and thirty checks per UTC day. Manual ch
 
 Discord can be connected from Settings using a personal **User Install**, with no server installation step. It links an existing Radar account; it does not add Discord sign-in. A welcome DM checks delivery before research notifications become active. New findings from all active tasks are sent independently of email preferences. Settings provides a notification switch, test message, and disconnect; successful finding DMs also appear in Notifications.
 
-Discord can refuse unsolicited DMs without a mutual server (`50278`), or due to privacy settings/blocking (`50007`). User Install and account linking do **not** guarantee proactive DM access. Radar shows the linked-but-blocked state and does not activate notifications on a failed welcome. The serverless delivery scenario must be tested with a real Discord account before promising it to users. No automatic guild join or guild installation is performed.
+Discord can refuse unsolicited DMs without a mutual server (`50278`), or due to privacy settings/blocking (`50007`). User Install and account linking do **not** guarantee delivery for every account. Radar shows the linked-but-blocked state and does not activate notifications on a failed welcome. No automatic guild join or guild installation is performed.
+
+Live validation on 2026-09-17 confirmed the local web OAuth flow, welcome DM, explicit test DM, and a background finding DM with the bot installed in **zero guilds**. Discord displayed “No servers in common.” The finding was explicitly labeled synthetic, created through the production research completion function, and sent by the scheduled worker after a process restart using only the bot token. All three deliveries were recorded as sent on their first attempt. The synthetic task was paused afterward. This validates the local integration; production deployment and a separate long-delay soak test remain outstanding.
 
 ### Discord setup
 
