@@ -1,4 +1,4 @@
-import { researchLimits } from "./research-state";
+import { researchLimits } from "./state";
 
 export function researchPrompt(today: string, language: string, schema: string) {
   return `You research scheduled monitoring tasks using web search and page reading.

@@ -1,13 +1,13 @@
 import { expect, it, vi } from "vitest";
 import type { TaskInput } from "@radar/core";
-import { createResearch } from "../../../packages/agent/src/research";
-import { createResearchModel } from "../../../packages/agent/src/research-model";
+import { createResearch } from "../../../packages/agent/src/research/index";
+import { createResearchModel } from "../../../packages/agent/src/research/model";
 import {
   ResearchCancelled,
   ResearchError,
   stateSchema,
-} from "../../../packages/agent/src/research-state";
-import type { createRetrieval } from "../../../packages/agent/src/retrieval";
+} from "../../../packages/agent/src/research/state";
+import type { createRetrieval } from "../../../packages/agent/src/research/retrieval";
 
 const task: TaskInput = {
   title: "Hono releases",

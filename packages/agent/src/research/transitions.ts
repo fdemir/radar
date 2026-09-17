@@ -1,6 +1,6 @@
-import { finalizeDecision, type ModelDecision } from "./research-decision";
-import { ResearchError, type ResearchState, type ToolState } from "./research-state";
-import type { ToolOutcome } from "./research-tools";
+import { finalizeDecision, type ModelDecision } from "./decision";
+import { ResearchError, type ResearchState, type ToolState } from "./state";
+import type { ToolOutcome } from "./tools";
 
 export function applyModelDecision(
   state: ResearchState,

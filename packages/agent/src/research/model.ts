@@ -2,11 +2,11 @@ import { APICallError, generateText, Output, tool, type ModelMessage } from "ai"
 import z from "zod";
 import type { TaskInput } from "@radar/core";
 import { ResearchDeferred, type ResearchRequestHooks } from "@radar/core/research";
-import { createModel, type ModelConfig } from "./model-client";
-import { ProviderError, runProviderOperation } from "./provider-operation";
+import { createModel, type ModelConfig } from "../provider/model";
+import { ProviderError, runProviderOperation } from "../provider/operation";
 import { searchQuerySchema } from "./retrieval";
-import { decisionSchema, type ModelDecision } from "./research-decision";
-import { researchPrompt } from "./research-prompt";
+import { decisionSchema, type ModelDecision } from "./decision";
+import { researchPrompt } from "./prompt";
 import {
   parseToolCall,
   readInputSchema,
@@ -16,7 +16,7 @@ import {
   ResearchCancelled,
   type PreviousFinding,
   type ResearchState,
-} from "./research-state";
+} from "./state";
 
 const researchTools = {
   searchWeb: tool({

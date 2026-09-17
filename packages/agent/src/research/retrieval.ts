@@ -1,6 +1,6 @@
 import z from "zod";
 import { publicUrl, type ResearchRequestHooks, type ResearchService } from "@radar/core/research";
-import { ProviderError, requestProvider } from "./provider-request";
+import { ProviderError, requestProvider } from "../provider/request";
 
 export const searchQuerySchema = z.object({
   query: z.string().trim().min(1).max(400),

@@ -40,7 +40,7 @@ it("rejects private and non-web URLs and removes tracking without skipping adjac
 });
 
 it("keeps only unique public links for source follow-up", async () => {
-  const { publicLinks } = await import("../../../packages/agent/src/retrieval");
+  const { publicLinks } = await import("../../../packages/agent/src/research/retrieval");
 
   expect(
     publicLinks([

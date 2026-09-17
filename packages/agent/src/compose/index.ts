@@ -1,6 +1,6 @@
 import { APICallError, generateText, Output, streamText } from "ai";
-import { createModel, type ModelConfig } from "./model-client";
-import { composePrompt } from "./compose-prompt";
+import { createModel, type ModelConfig } from "../provider/model";
+import { composePrompt } from "./prompt";
 import { taskInputSchema, type TaskInput } from "@radar/core";
 import z from "zod";
 

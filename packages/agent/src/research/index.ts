@@ -1,10 +1,10 @@
 import type { TaskInput } from "@radar/core";
 import type { ResearchResult } from "@radar/core/research";
-import type { createResearchModel } from "./research-model";
+import type { createResearchModel } from "./model";
 import type { createRetrieval } from "./retrieval";
-import { executeResearchTool } from "./research-tools";
-import { applyModelDecision, applyToolResult } from "./research-transitions";
-import { restoreCheckpoint } from "./research-checkpoint";
+import { executeResearchTool } from "./tools";
+import { applyModelDecision, applyToolResult } from "./transitions";
+import { restoreCheckpoint } from "./checkpoint";
 import {
   researchLimits,
   researchStages,
@@ -16,7 +16,7 @@ import {
   type ResearchProgress,
   type ResearchStage,
   type ResearchState,
-} from "./research-state";
+} from "./state";
 
 type ResearchDependencies = {
   model: ReturnType<typeof createResearchModel>;

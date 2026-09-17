@@ -1,7 +1,7 @@
 import z from "zod";
 import { candidateSchema, researchResultSchema, publicUrl } from "@radar/core/research";
 import { plainText } from "@radar/core/emphasis";
-import { ResearchError, type ResearchState, type ResearchToolCall } from "./research-state";
+import { ResearchError, type ResearchState, type ResearchToolCall } from "./state";
 
 export const decisionSchema = researchResultSchema.extend({
   findings: z

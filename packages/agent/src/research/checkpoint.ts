@@ -5,7 +5,7 @@ import {
   stateSchema,
   type ResearchCheckpoint,
   type ResearchToolCall,
-} from "./research-state";
+} from "./state";
 
 const legacyCallSchema = z.object({
   id: z.string(),

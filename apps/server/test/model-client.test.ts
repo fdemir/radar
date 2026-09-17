@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { composeTask, ComposeUnavailableError } from "../../../packages/agent/src/compose";
+import { composeTask, ComposeUnavailableError } from "../../../packages/agent/src/compose/index";
 import { taskInputSchema } from "@radar/core";
 
 const config = {

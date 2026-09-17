@@ -7,7 +7,7 @@ import {
   type ResearchStage,
   type ResearchState,
   type ToolState,
-} from "./research-state";
+} from "./state";
 
 type ToolContext = {
   brief: string;

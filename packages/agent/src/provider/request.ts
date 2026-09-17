@@ -1,7 +1,7 @@
-import { ProviderError, runProviderOperation } from "./provider-operation";
+import { ProviderError, runProviderOperation } from "./operation";
 import type { ResearchAttempt, ResearchRequestHooks } from "@radar/core/research";
 
-export { ProviderError } from "./provider-operation";
+export { ProviderError } from "./operation";
 
 type ProviderRequest<T> = ResearchRequestHooks & {
   service: ResearchAttempt["service"];

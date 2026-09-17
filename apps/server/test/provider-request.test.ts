@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ResearchDeferred, type ResearchAttempt } from "@radar/core/research";
-import { requestProvider } from "../../../packages/agent/src/provider-request";
-import { createRetrieval } from "../../../packages/agent/src/retrieval";
+import { requestProvider } from "../../../packages/agent/src/provider/request";
+import { createRetrieval } from "../../../packages/agent/src/research/retrieval";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {

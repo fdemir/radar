@@ -1,10 +1,10 @@
 import { expect, it, vi } from "vitest";
 import { taskInputSchema } from "@radar/core";
-import { restoreCheckpoint } from "../../../packages/agent/src/research-checkpoint";
-import { createResearch } from "../../../packages/agent/src/research";
-import { decisionSchema, finalizeDecision } from "../../../packages/agent/src/research-decision";
-import { stateSchema, type ResearchCheckpoint } from "../../../packages/agent/src/research-state";
-import type { createResearchModel } from "../../../packages/agent/src/research-model";
+import { restoreCheckpoint } from "../../../packages/agent/src/research/checkpoint";
+import { createResearch } from "../../../packages/agent/src/research/index";
+import { decisionSchema, finalizeDecision } from "../../../packages/agent/src/research/decision";
+import { stateSchema, type ResearchCheckpoint } from "../../../packages/agent/src/research/state";
+import type { createResearchModel } from "../../../packages/agent/src/research/model";
 
 const url = "https://hono.dev/releases";
 const page = {
