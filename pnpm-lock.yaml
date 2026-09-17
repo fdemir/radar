@@ -24,9 +24,6 @@ catalogs:
     lucide-react:
       specifier: ^1.41.0
       version: 1.46.0
-    next-themes:
-      specifier: ^0.4.6
-      version: 0.4.6
     react:
       specifier: ^19.2.8
       version: 19.3.0
@@ -178,9 +175,6 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.46.0(react@19.3.0)
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: 'catalog:'
         version: 19.3.0
@@ -403,9 +397,6 @@ importers:
       lucide-react:
         specifier: 'catalog:'
         version: 1.46.0(react@19.3.0)
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       react:
         specifier: 'catalog:'
         version: 19.3.0
@@ -4828,12 +4819,6 @@ packages:
   negotiator@1.1.0:
     resolution: {integrity: sha512-NMPBRMJgiQHjbd8phG3Vebdx4kZ1H121rbl5IkMqeOsahptB9BKo/d7oJ3zTXqTgagn2bWlNSXkh0QUGM31RYg==}
     engines: {node: '>=18'}
-
-  next-themes@0.4.6:
-    resolution: {integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==}
-    peerDependencies:
-      react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
 
   node-gyp-build-optional-packages@5.2.2:
     resolution: {integrity: sha512-s+w+rBWnpTMwSFbaE0UXsRlg7hU4FjekKU4eyAih5T8nJuNZT1nNsskXpxmeqSK9UzkBl6UgRlnKc8hz8IEqOw==}
@@ -9927,11 +9912,6 @@ snapshots:
   negotiator@1.1.0:
     dependencies:
       content-type: 2.1.0
-
-  next-themes@0.4.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
-    dependencies:
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
 
   node-gyp-build-optional-packages@5.2.2:
     dependencies:

@@ -13,7 +13,6 @@ import "./index.css";
 import type { Route } from "./+types/root";
 import radarLogo from "./assets/radar.svg";
 import Header from "./components/header";
-import { ThemeProvider } from "./components/theme-provider";
 
 export function meta() {
   return [{ title: "Radar" }];
@@ -31,11 +30,11 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="light">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="color-scheme" content="light dark" />
+        <meta name="color-scheme" content="light" />
         <Meta />
         <Links />
       </head>
@@ -55,19 +54,13 @@ export default function App() {
   );
 
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-      storageKey="radar-theme"
-    >
+    <>
       <div className="min-h-svh">
         {!workspace && <Header />}
         <Outlet />
       </div>
       <Toaster />
-    </ThemeProvider>
+    </>
   );
 }
 

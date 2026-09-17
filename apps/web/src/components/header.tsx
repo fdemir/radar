@@ -4,7 +4,6 @@ import { Link, NavLink } from "react-router";
 import { buttonVariants } from "@radar/ui/components/button";
 import { authClient } from "@/lib/auth-client";
 import { Brand } from "@/features/radar/components";
-import { ModeToggle } from "./mode-toggle";
 
 export default function Header({ unread = 0 }: { unread?: number }) {
   const { data: session } = authClient.useSession();
@@ -41,7 +40,6 @@ export default function Header({ unread = 0 }: { unread?: number }) {
               ))}
             </nav>
             <div className="flex items-center gap-2">
-              <ModeToggle />
               <Link
                 to="/notifications"
                 aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
@@ -84,7 +82,6 @@ export default function Header({ unread = 0 }: { unread?: number }) {
               </Link>
             </nav>
             <div className="flex items-center gap-2">
-              <ModeToggle />
               <Link to="/login" className={cn(buttonVariants({ variant: "outline" }))}>
                 Sign in <span aria-hidden="true">↗</span>
               </Link>
