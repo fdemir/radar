@@ -27,6 +27,7 @@ const candidate = {
   title: "Hono 4.13.7",
   summary: "A stable release with a rendering fix.",
   reason: "An official stable release.",
+  evidence: "Stable Hono release. Fixes rendering in boundary components.",
   url: source,
   eventKey: "hono-release",
   version: "4.13.7",
@@ -47,7 +48,8 @@ let mode:
   | "partial"
   | "unreadable"
   | "unchanged"
-  | "search-rate-limit";
+  | "search-rate-limit"
+  | "bad-evidence";
 let calls: {
   host: string;
   path: string;
@@ -135,6 +137,10 @@ beforeAll(async () => {
                     : [
                         {
                           ...candidate,
+                          evidence:
+                            mode === "bad-evidence"
+                              ? "This release guarantees a 100% performance improvement."
+                              : candidate.evidence,
                           url:
                             mode === "bad-citation"
                               ? "https://unread.example.com/invented"
@@ -311,6 +317,8 @@ it("runs TinyFish search and fetch, saves cited findings, and delivers once acro
   expect(await value("run", "status")).toBe("completed");
   expect(await value("run", "findings")).toBe(1);
   expect(await value("finding", "url")).toBe(source);
+  expect(await value("finding", "evidence")).toBe(candidate.evidence);
+  expect((await workspace.snapshot("owner")).findings[0]?.evidence).toBe(candidate.evidence);
   expect(await value("delivery", "status")).toBe("sent");
   expect(sent()).toHaveLength(1);
   expect(sent()[0]!.body.text).toContain(source);
@@ -511,4 +519,13 @@ it("keeps hourly search and per-minute URL limits separate, scoped to the provid
   const otherKey = await createProviderBudget(db, "another-key");
 
   await expect(otherKey.reserve("search", 1, now)).resolves.toBeUndefined();
+});
+
+it("omits invented source quotes and labels the missing evidence as incomplete", async () => {
+  mode = "bad-evidence";
+  await consume(await research.start("owner", taskId));
+  expect(await value("run", "status")).toBe("completed");
+  expect(await value("run", "coverage")).toBe("limited");
+  expect(await value("finding", "count(*)")).toBe(0);
+  expect(sent()).toHaveLength(0);
 });

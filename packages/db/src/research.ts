@@ -95,8 +95,8 @@ export function createResearch(db: Database) {
       raw
         .prepare(
           `
-      INSERT OR IGNORE INTO finding (id, task_id, run_id, event_key, version, title, summary, reason, url, source, date)
-      SELECT ?, r.task_id, r.id, ?, ?, ?, ?, ?, ?, ?, ? FROM run r
+      INSERT OR IGNORE INTO finding (id, task_id, run_id, event_key, version, title, summary, reason, evidence, url, source, date)
+      SELECT ?, r.task_id, r.id, ?, ?, ?, ?, ?, ?, ?, ?, ? FROM run r
       WHERE r.id = ? AND r.lease = ? AND r.status = 'completed'
     `,
         )
@@ -107,6 +107,7 @@ export function createResearch(db: Database) {
           item.title,
           item.summary,
           item.reason,
+          item.evidence ?? "",
           item.url,
           new URL(item.url).hostname,
           date,

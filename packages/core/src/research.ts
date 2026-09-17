@@ -4,6 +4,7 @@ export const candidateSchema = z.object({
   title: z.string().min(1).max(200),
   summary: z.string().min(1).max(1500),
   reason: z.string().min(1).max(500),
+  evidence: z.string().max(600).optional(),
   url: z.url(),
   eventKey: z.string().min(1).max(200),
   version: z.string().min(1).max(200),

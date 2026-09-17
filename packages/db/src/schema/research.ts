@@ -60,6 +60,7 @@ export const finding = sqliteTable(
     title: text("title").notNull(),
     summary: text("summary").notNull(),
     reason: text("reason").notNull(),
+    evidence: text("evidence").notNull().default(""),
     url: text("url").notNull(),
     source: text("source").notNull(),
     date: text("date").notNull(),

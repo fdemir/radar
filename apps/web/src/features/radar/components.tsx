@@ -2,6 +2,12 @@ import type { ReactNode } from "react";
 import { ArrowUpRight, Bookmark, Code2, Compass, Music2, Plane, Search } from "lucide-react";
 import { Link } from "react-router";
 import { Button, buttonVariants } from "@radar/ui/components/button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@radar/ui/components/accordion";
 import { Card } from "@radar/ui/components/card";
 import {
   Dialog,
@@ -188,6 +194,23 @@ export function SearchField({
   );
 }
 
+function SourceEvidence({ evidence }: { evidence: string }) {
+  if (!evidence) return null;
+
+  return (
+    <Accordion>
+      <AccordionItem value="evidence">
+        <AccordionTrigger className="py-3 text-xs">Source excerpt</AccordionTrigger>
+        <AccordionContent className="pb-4">
+          <blockquote className="border-l-2 border-sky-accent pl-3 text-[13px] leading-relaxed [overflow-wrap:anywhere]">
+            {evidence}
+          </blockquote>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+}
+
 export function FindingCard({ item, open }: { item: Finding; open: (finding: Finding) => void }) {
   const { finding } = useWorkspace();
 
@@ -225,6 +248,7 @@ export function FindingCard({ item, open }: { item: Finding; open: (finding: Fin
         </h3>
         <p className="mt-3 text-[13px] leading-relaxed">{item.summary}</p>
       </div>
+      <SourceEvidence evidence={item.evidence} />
       <div className="flex items-center justify-between gap-3 border-t pt-3.5">
         <time className="text-[11px] text-muted-foreground" dateTime={item.date}>
           {formatDate(item.date)}
@@ -248,6 +272,7 @@ export function FindingModal({ item, close }: { item: Finding; close: () => void
         <h3 className="text-sm">Why it matches</h3>
         <p>{item.reason}</p>
       </div>
+      <SourceEvidence evidence={item.evidence} />
       <div className="flex flex-wrap gap-3">
         <a href={item.url} target="_blank" rel="noreferrer" className={cn(buttonVariants())}>
           Open source <ArrowUpRight />

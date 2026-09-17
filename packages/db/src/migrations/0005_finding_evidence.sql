@@ -1,0 +1,1 @@
+ALTER TABLE `finding` ADD `evidence` text DEFAULT '' NOT NULL;

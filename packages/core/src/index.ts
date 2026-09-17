@@ -71,6 +71,7 @@ export const findingSchema = z.object({
   title: z.string(),
   summary: z.string(),
   reason: z.string(),
+  evidence: z.string().default(""),
   source: z.string(),
   url: z.url(),
   category: categorySchema,
