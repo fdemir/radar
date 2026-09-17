@@ -58,8 +58,9 @@ it("preserves finding emphasis while keeping headlines and run history plain", a
   const { research, model } = workflow();
 
   model.mockResolvedValue({
-    role: "assistant",
-    content: JSON.stringify({
+    kind: "final",
+    text: "Hono 5.0 is available.",
+    result: {
       summary: "Hono **5.0** is available.",
       findings: [
         {
@@ -73,7 +74,7 @@ it("preserves finding emphasis while keeping headlines and run history plain", a
         },
       ],
       needsMoreEvidence: false,
-    }),
+    },
   });
 
   const result = await research(task, [], async () => true, {
@@ -106,13 +107,13 @@ it("does not execute a model's tool request after losing its checkpoint lease", 
   const { research, model, search } = workflow();
 
   model.mockResolvedValue({
-    role: "assistant",
-    content: null,
-    tool_calls: [
+    kind: "tools",
+    text: "",
+    calls: [
       {
         id: "search-1",
-        type: "function",
-        function: { name: "searchWeb", arguments: JSON.stringify({ query: "Hono releases" }) },
+        name: "searchWeb",
+        input: { query: "Hono releases" },
       },
     ],
   });
@@ -130,13 +131,13 @@ it("uses its last turn to finish when the time budget is nearly exhausted", asyn
 
   now.mockReturnValueOnce(started).mockReturnValue(started + 240_000);
   model.mockResolvedValue({
-    role: "assistant",
-    content: null,
-    tool_calls: [
+    kind: "tools",
+    text: "",
+    calls: [
       {
         id: "too-late",
-        type: "function",
-        function: { name: "searchWeb", arguments: JSON.stringify({ query: "Hono releases" }) },
+        name: "searchWeb",
+        input: { query: "Hono releases" },
       },
     ],
   });

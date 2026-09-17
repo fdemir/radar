@@ -1,18 +1,16 @@
 import { END, START, StateGraph, StateSchema } from "@langchain/langgraph";
 import type { TaskInput } from "@radar/core";
-import { plainText } from "@radar/core/emphasis";
-import { publicUrl, type ResearchResult } from "@radar/core/research";
-import type z from "zod";
-import { type createResearchModel, decisionSchema } from "./research-model";
+import type { ResearchResult } from "@radar/core/research";
+import type { createResearchModel } from "./research-model";
 import type { createRetrieval } from "./retrieval";
 import { executeResearchTool } from "./research-tools";
+import { applyModelDecision, applyToolResult } from "./research-transitions";
+import { restoreCheckpoint } from "./research-checkpoint";
 import {
-  nodeNames,
   researchLimits,
   researchStages,
   ResearchCancelled,
   ResearchError,
-  restoreCheckpoint,
   stateSchema,
   type PreviousFinding,
   type ResearchOptions,
@@ -48,12 +46,8 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
       deadline: started + researchLimits.durationMs,
     };
     const retrieval = sources(task.brief, signal, requests);
-    const nextNode = (state: ResearchState) =>
-      state.pending.length ? "tools" : state.result ? "finish" : "model";
-    const emptyResult = {
-      summary: task.language === "Türkçe" ? "Yeni eşleşme yok." : "No new matches.",
-      findings: [],
-    };
+    const nextNode = (state: ResearchState) => state.execution.phase;
+    const nodeNames = ["model", "tools", "finish"] as const;
 
     async function step(stage: ResearchStage, state: ResearchState) {
       signal.throwIfAborted();
@@ -68,18 +62,17 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
     }
 
     const persist =
-      (action: (state: ResearchState) => Promise<Partial<ResearchState>>) =>
+      (action: (state: ResearchState) => Promise<ResearchState>) =>
       async (state: ResearchState) => {
-        const change = await action(state);
-        const updated = { ...state, ...change };
+        const updated = await action(state);
 
         if (
           options.saveCheckpoint &&
-          !(await options.saveCheckpoint({ version: 2, next: nextNode(updated), state: updated }))
+          !(await options.saveCheckpoint({ version: 3, state: updated }))
         )
           throw new ResearchCancelled();
 
-        return change;
+        return updated;
       };
 
     const graph = new StateGraph(new StateSchema(stateSchema.shape))
@@ -94,88 +87,34 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
           const finalTurn =
             state.turns >= researchLimits.turns - 1 ||
             now() - started >= researchLimits.finalTurnAfterMs;
-          const reply = await model({ task, previous, state, finalTurn, today, signal, requests });
-          const turns = state.turns + 1;
-          const messages = [...state.messages, reply];
-
-          if (reply.tool_calls?.length) {
-            if (finalTurn) return { turns, limited: true, result: emptyResult };
-
-            return { turns, messages, pending: reply.tool_calls };
-          }
-
-          let result: z.output<typeof decisionSchema>;
-
-          try {
-            result = decisionSchema.parse(JSON.parse(reply.content ?? ""));
-          } catch (cause) {
-            if (finalTurn)
-              throw new ResearchError("The assistant returned an incomplete response. Try again.", {
-                cause,
-              });
-
-            return {
-              turns,
-              messages: [
-                ...messages,
-                {
-                  role: "user" as const,
-                  content:
-                    "Your response was not a valid result. Continue with the available tools, or return a JSON result matching the required schema.",
-                },
-              ],
-            };
-          }
-
-          const findings = result.findings.map((item) => {
-            const url = publicUrl(item.url);
-            const source = state.sources.find((source) => source.url === url);
-
-            if (!source) throw new ResearchError("A finding had an invalid source. Try again.");
-
-            const normalize = (text: string) => text.replace(/\s+/gu, " ").trim();
-            const evidence = normalize(item.evidence);
-
-            return {
-              ...item,
-              title: plainText(item.title),
-              reason: plainText(item.reason),
-              url: source.url,
-              evidence:
-                evidence.length >= 12 && normalize(source.content).includes(evidence)
-                  ? evidence
-                  : "",
-              eventKey: item.eventKey.trim().toLowerCase(),
-              version: item.version.trim().toLowerCase(),
-            };
+          const decision = await model({
+            task,
+            previous,
+            state,
+            finalTurn,
+            today,
+            signal,
+            requests,
           });
-          const unverifiedQuotes = result.findings.filter(
-            (item, index) => item.evidence && !findings[index]!.evidence,
-          );
 
-          return {
-            turns,
-            messages,
-            result: { summary: plainText(result.summary), findings },
-            limited:
-              state.limited ||
-              result.needsMoreEvidence ||
-              unverifiedQuotes.length > 0 ||
-              !state.searched.length ||
-              (state.candidates.length > 0 && !state.sources.length),
-          };
+          return applyModelDecision(state, decision, finalTurn, task.language);
         }),
       )
       .addNode(
         "tools",
-        persist((state) =>
-          executeResearchTool(state, {
+        persist(async (state) => {
+          if (state.execution.phase !== "tools") throw new Error("No pending research tools.");
+
+          const toolState = { ...state, execution: state.execution };
+          const outcome = await executeResearchTool(toolState, {
             brief: task.brief,
             signal,
             retrieval,
             step,
-          }),
-        ),
+          });
+
+          return applyToolResult(toolState, outcome);
+        }),
       )
       .addNode("finish", async (state) => {
         await step(researchStages.finishing, state);
@@ -185,17 +124,20 @@ export function createResearch({ model, sources, now = Date.now }: ResearchDepen
 
         return {};
       })
-      .addConditionalEdges(START, () => checkpoint?.next ?? "model", [...nodeNames])
+      .addConditionalEdges(START, () => checkpoint?.state.execution.phase ?? "model", [
+        ...nodeNames,
+      ])
       .addConditionalEdges("model", nextNode, [...nodeNames])
       .addConditionalEdges("tools", nextNode, [...nodeNames])
       .addEdge("finish", END)
       .compile();
     const state = await graph.invoke(checkpoint?.state ?? {}, { signal, recursionLimit: 96 });
 
-    if (!state.result) throw new ResearchError("Research did not finish. Try again.");
+    if (state.execution.phase !== "finish")
+      throw new ResearchError("Research did not finish. Try again.");
 
     return {
-      ...state.result,
+      ...state.execution.result,
       sources: state.sources.map((source) => source.url),
       coverage: state.limited ? "limited" : "complete",
     };

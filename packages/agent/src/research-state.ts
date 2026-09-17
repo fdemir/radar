@@ -4,7 +4,7 @@ import {
   type Candidate,
   type ResearchRequestHooks,
 } from "@radar/core/research";
-import { searchSourceSchema, sourceSchema } from "./retrieval";
+import { searchQuerySchema, searchSourceSchema, sourceSchema } from "./retrieval";
 
 export class ResearchError extends Error {}
 
@@ -35,81 +35,70 @@ export type ResearchStage = (typeof researchStages)[keyof typeof researchStages]
 // Returning false means the run was cancelled or lost its lease and must stop.
 export type ResearchProgress = (stage: ResearchStage, sources?: string[]) => Promise<boolean>;
 
-export const toolCallSchema = z.object({
-  id: z.string(),
-  type: z.literal("function"),
-  function: z.object({ name: z.string(), arguments: z.string() }),
-});
+export const readInputSchema = z.object({ url: z.string() });
 
-export const messageSchema = z.object({
-  role: z.enum(["user", "assistant", "tool"]),
-  content: z.string().nullable().default(null),
-  tool_calls: z.array(toolCallSchema).max(10).optional(),
-  tool_call_id: z.string().optional(),
-});
+export const toolCallSchema = z.discriminatedUnion("name", [
+  z.object({ id: z.string(), name: z.literal("searchWeb"), input: searchQuerySchema }),
+  z.object({ id: z.string(), name: z.literal("scrapeWebsite"), input: readInputSchema }),
+  z.object({
+    id: z.string(),
+    name: z.literal("invalid"),
+    originalName: z.string(),
+    input: z.unknown(),
+  }),
+]);
+
+export type ResearchToolCall = z.output<typeof toolCallSchema>;
+
+export function parseToolCall(id: string, name: string, input: unknown): ResearchToolCall {
+  const parsed = toolCallSchema.safeParse({ id, name, input });
+
+  return parsed.success ? parsed.data : { id, name: "invalid", originalName: name, input };
+}
+
+export const messageSchema = z.discriminatedUnion("role", [
+  z.object({ role: z.literal("user"), content: z.string() }),
+  z.object({
+    role: z.literal("assistant"),
+    content: z.string(),
+    calls: z.array(toolCallSchema).max(10),
+  }),
+  z.object({
+    role: z.literal("tool"),
+    callId: z.string(),
+    toolName: z.string(),
+    content: z.string(),
+  }),
+]);
 
 export const stateSchema = z.object({
   messages: z.array(messageSchema).default([]),
-  pending: z.array(toolCallSchema).default([]),
   candidates: z.array(searchSourceSchema).default([]),
   sources: z.array(sourceSchema).default([]),
   searched: z.array(z.string()).default([]),
   attempted: z.array(z.string()).default([]),
-  turns: z.number().default(0),
-  followups: z.number().default(0),
-  searchFailures: z.number().default(0),
+  turns: z.number().int().nonnegative().default(0),
+  followups: z.number().int().nonnegative().default(0),
+  searchFailures: z.number().int().nonnegative().default(0),
   limited: z.boolean().default(false),
-  result: researchResultSchema.nullable().default(null),
-});
-
-export const nodeNames = ["model", "tools", "finish"] as const;
-
-const checkpointSchema = z.object({
-  version: z.literal(2),
-  next: z.enum(nodeNames),
-  state: stateSchema,
+  execution: z
+    .discriminatedUnion("phase", [
+      z.object({ phase: z.literal("model") }),
+      z.object({ phase: z.literal("tools"), pending: z.array(toolCallSchema).min(1).max(10) }),
+      z.object({ phase: z.literal("finish"), result: researchResultSchema }),
+    ])
+    .default({ phase: "model" }),
 });
 
 export type ResearchState = z.output<typeof stateSchema>;
 
-export type ResearchCheckpoint = z.output<typeof checkpointSchema>;
+export type ToolState = ResearchState & {
+  execution: Extract<ResearchState["execution"], { phase: "tools" }>;
+};
+
+export type ResearchCheckpoint = { version: 3; state: ResearchState };
 
 export type ResearchOptions = ResearchRequestHooks & {
   checkpoint?: unknown;
   saveCheckpoint?: (checkpoint: ResearchCheckpoint) => Promise<boolean>;
 };
-
-// Preserve completed provider work when a queued run crosses a deployment.
-export function restoreCheckpoint(value: unknown): ResearchCheckpoint | null {
-  if (!value) return null;
-
-  const current = checkpointSchema.safeParse(value);
-
-  if (current.success) return current.data;
-
-  const legacy = z
-    .object({
-      next: z.enum(["plan", "search", "read", "evaluate", "expand", "finish"]),
-      state: stateSchema.extend({ insufficient: z.boolean().default(false) }),
-    })
-    .parse(value);
-  const state = stateSchema.parse(legacy.state);
-
-  state.messages = [
-    {
-      role: "user",
-      content: JSON.stringify({
-        resume:
-          "Continue this research using the completed searches and pages below. Do not repeat them.",
-        searches: state.searched,
-        searchResults: state.candidates,
-        pages: state.sources,
-      }),
-    },
-  ];
-  state.limited ||= legacy.state.insufficient;
-
-  if (legacy.next !== "finish") state.result = null;
-
-  return { version: 2, next: legacy.next === "finish" && state.result ? "finish" : "model", state };
-}

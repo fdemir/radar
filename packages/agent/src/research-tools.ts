@@ -1,12 +1,12 @@
-import z from "zod";
 import { publicUrl, ResearchDeferred } from "@radar/core/research";
-import { type createRetrieval, searchQuerySchema, searchUrl } from "./retrieval";
+import { type createRetrieval, searchUrl } from "./retrieval";
 import {
   researchLimits,
   researchStages,
   ResearchCancelled,
   type ResearchStage,
   type ResearchState,
+  type ToolState,
 } from "./research-state";
 
 type ToolContext = {
@@ -17,36 +17,21 @@ type ToolContext = {
 };
 
 export async function executeResearchTool(
-  state: ResearchState,
+  state: ToolState,
   { brief, signal, retrieval, step }: ToolContext,
-): Promise<Partial<ResearchState>> {
-  const call = state.pending[0]!;
-  const reply = (output: unknown, change: Partial<ResearchState> = {}): Partial<ResearchState> => ({
-    ...change,
-    pending: state.pending.slice(1),
-    messages: [
-      ...state.messages,
-      { role: "tool", tool_call_id: call.id, content: JSON.stringify(output) },
-    ],
+): Promise<ToolOutcome> {
+  const call = state.execution.pending[0]!;
+  const reply = (output: unknown, changes: ToolOutcome["changes"] = {}): ToolOutcome => ({
+    content: JSON.stringify(output),
+    changes,
   });
-  let args: unknown;
 
-  try {
-    args = JSON.parse(call.function.arguments);
-  } catch {
-    return reply({ error: "Tool arguments must be valid JSON." });
-  }
-
-  if (call.function.name === "searchWeb") {
+  if (call.name === "searchWeb") {
     await step(state.sources.length ? researchStages.expanding : researchStages.searching, state);
 
-    const query = searchQuerySchema.safeParse(args);
-
-    if (!query.success)
-      return reply({ error: "Provide a short query and valid optional search filters." });
-
-    const url = searchUrl(query.data, brief).href;
-    const output = { query: query.data.query, results: [] };
+    const query = call.input;
+    const url = searchUrl(query, brief).href;
+    const output = { query: query.query, results: [] };
 
     if (state.searched.includes(url))
       return reply({
@@ -69,10 +54,10 @@ export async function executeResearchTool(
     };
 
     try {
-      const results = await retrieval.search(query.data, `tool:${call.id}`);
+      const results = await retrieval.search(query, `tool:${call.id}`);
 
       return reply(
-        { query: query.data.query, results },
+        { query: query.query, results },
         { ...change, candidates: [...state.candidates, ...results] },
       );
     } catch (error) {
@@ -87,11 +72,10 @@ export async function executeResearchTool(
     }
   }
 
-  if (call.function.name === "scrapeWebsite") {
+  if (call.name === "scrapeWebsite") {
     await step(researchStages.reading, state);
 
-    const parsed = z.object({ url: z.string() }).safeParse(args);
-    const url = parsed.success ? publicUrl(parsed.data.url) : null;
+    const url = publicUrl(call.input.url);
 
     if (!url)
       return reply({
@@ -148,5 +132,24 @@ export async function executeResearchTool(
     }
   }
 
-  return reply({ error: "Unknown tool. Use searchWeb or scrapeWebsite." });
+  return reply({
+    error:
+      "Invalid tool or arguments. Use searchWeb with a valid query, or scrapeWebsite with a public URL.",
+  });
 }
+
+export type ToolOutcome = {
+  content: string;
+  changes: Partial<
+    Pick<
+      ResearchState,
+      | "searched"
+      | "followups"
+      | "candidates"
+      | "limited"
+      | "searchFailures"
+      | "attempted"
+      | "sources"
+    >
+  >;
+};
