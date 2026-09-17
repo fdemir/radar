@@ -135,7 +135,10 @@ export function createRetrieval(
       return {
         url: finalUrl,
         title: page.title || title,
-        content: page.text.slice(0, 7000),
+        content:
+          page.text.length <= 30000
+            ? page.text
+            : `${page.text.slice(0, 22000)}\n\n[Middle of page omitted]\n\n${page.text.slice(-8000)}`,
         links: publicLinks(page.links ?? []).slice(0, 80),
       };
     },

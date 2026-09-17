@@ -55,6 +55,9 @@ let mode:
   | "repeated-tools"
   | "invalid-output"
   | "follow-read-limit"
+  | "direct-source"
+  | "long-source"
+  | "repair-evidence"
   | "linked-page";
 let calls: {
   host: string;
@@ -181,6 +184,17 @@ beforeAll(async () => {
         const pages = outputs.filter((output) => output.url);
         const modelCalls = calls.filter((call) => call.host === "model.example.com").length;
 
+        if (mode === "direct-source" && searches.length) {
+          if (!pages.some((page) => page.content) && body.tool_choice !== "none")
+            return invoke("scrapeWebsite", [{ url: source }]);
+
+          return respond({
+            summary: "Verified the official release directly.",
+            findings: pages.some((page) => page.content) ? [candidate] : [],
+            needsMoreEvidence: !pages.some((page) => page.content),
+          });
+        }
+
         if (mode === "invalid-output" && modelCalls === 1) return respond({ incomplete: true });
 
         if (mode === "repeated-tools" && body.tool_choice !== "none")
@@ -240,7 +254,7 @@ beforeAll(async () => {
               .slice(2)
               .flatMap((search) => search.results ?? [])
               .filter((result) => !pages.some((page) => page.url === result.url))
-              .slice(0, 4)
+              .slice(0, 10)
               .map((result) => ({ url: result.url })),
           );
 
@@ -264,7 +278,18 @@ beforeAll(async () => {
                   evidence:
                     mode === "bad-evidence"
                       ? "This release guarantees a 100% performance improvement."
-                      : candidate.evidence,
+                      : mode === "repair-evidence" &&
+                          !messages.some(
+                            (message) =>
+                              message.role === "user" &&
+                              message.content?.includes("could not be verified"),
+                          )
+                        ? "Stable Hono release. Fixes rendering in boundary components."
+                        : mode === "repair-evidence"
+                          ? "**Stable Hono release.** Fixes rendering in boundary components."
+                          : mode === "long-source"
+                            ? "This project is open source and available under the MIT License."
+                            : candidate.evidence,
                   url: mode === "bad-citation" ? "https://unread.example.com/invented" : source,
                 },
               ],
@@ -315,7 +340,7 @@ beforeAll(async () => {
                       : []),
                     {
                       url:
-                        mode === "linked-page"
+                        mode === "linked-page" || mode === "direct-source"
                           ? "https://hono.dev/releases"
                           : source + "?utm_source=search",
                       title: "Hono release",
@@ -334,6 +359,7 @@ beforeAll(async () => {
           mode !== "expand" &&
           mode !== "partial" &&
           mode !== "homepage-results" &&
+          mode !== "follow-read-limit" &&
           mode !== "linked-page"
         )
           expect(body.urls).toEqual([source]);
@@ -348,14 +374,20 @@ beforeAll(async () => {
             mode === "unreadable"
               ? []
               : (body.urls as string[])
-                  .filter((url) => !url.endsWith("unreadable"))
+                  .filter((url) => !url.endsWith("unreadable") && !url.endsWith("invented"))
                   .map((url) => ({
                     url,
                     final_url: url,
                     text:
-                      url === "https://hono.dev/releases"
-                        ? "Latest releases. Follow a release link to read official notes."
-                        : "# v4.13.7\nStable Hono release. Fixes rendering in boundary components.",
+                      mode === "repair-evidence"
+                        ? "# v4.13.7\n**Stable Hono release.** Fixes rendering in boundary components."
+                        : mode === "long-source"
+                          ? "A useful introduction.\n" +
+                            "Detailed setup instructions.\n".repeat(6000) +
+                            "\nThis project is open source and available under the MIT License."
+                          : url === "https://hono.dev/releases"
+                            ? "Latest releases. Follow a release link to read official notes."
+                            : "# v4.13.7\nStable Hono release. Fixes rendering in boundary components.",
                     links: url === "https://hono.dev/releases" ? [source] : [],
                   })),
           errors:
@@ -513,7 +545,7 @@ it("schedules a due task through the actual queue consumer", async () => {
   expect(Number(await value("task", "next_run_at"))).toBeGreaterThan(Date.now());
 });
 
-it("uses targeted follow-up searches and enforces five distinct page reads, forwarding filters", async () => {
+it("uses targeted follow-up searches and enforces ten distinct page reads, forwarding filters", async () => {
   mode = "expand";
   await consume(await research.start("owner", taskId));
 
@@ -522,9 +554,9 @@ it("uses targeted follow-up searches and enforces five distinct page reads, forw
   const urls = reads.flatMap((call) => call.body.urls as string[]);
 
   expect(searches).toHaveLength(4);
-  expect(reads).toHaveLength(5);
-  expect(urls).toHaveLength(5);
-  expect(new Set(urls).size).toBe(5);
+  expect(reads).toHaveLength(10);
+  expect(urls).toHaveLength(10);
+  expect(new Set(urls).size).toBe(10);
   expect(searches[0]!.params).toMatchObject({
     include_domains: "github.com",
     recency_minutes: "2880",
@@ -657,13 +689,15 @@ it("keeps hourly search and per-minute URL limits separate, scoped to the provid
   await expect(otherKey.reserve("search", 1, now)).resolves.toBeUndefined();
 });
 
-it("omits invented source quotes and labels the missing evidence as incomplete", async () => {
+it("omits an unverified quote without discarding the finding from its successfully read source", async () => {
   mode = "bad-evidence";
   await consume(await research.start("owner", taskId));
   expect(await value("run", "status")).toBe("completed");
   expect(await value("run", "coverage")).toBe("limited");
-  expect(await value("finding", "count(*)")).toBe(0);
-  expect(sent()).toHaveLength(0);
+  expect(await value("finding", "count(*)")).toBe(1);
+  expect(await value("finding", "evidence")).toBe("");
+  expect(await value("finding", "url")).toBe(source);
+  expect(JSON.stringify(sent())).not.toContain("100% performance improvement");
 });
 
 it("delivers a persisted welcome from the scheduler without an interaction token", async () => {
@@ -744,10 +778,12 @@ it("recovers an invalid assistant response within the same decision budget", asy
   expect(await value("run", "status")).toBe("completed");
   expect(await value("finding", "count(*)")).toBe(1);
 });
-it("does not fetch duplicate, private, or invented URLs requested by the model", async () => {
+it("does not repeat reads or fetch private URLs, and keeps missing public URLs unverified", async () => {
   mode = "follow-read-limit";
   await consume(await research.start("owner", taskId));
-  expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(1);
+  expect(
+    calls.filter((call) => call.host === "api.fetch.tinyfish.ai").flatMap((call) => call.body.urls),
+  ).toEqual([source, "https://unread.example.com/invented"]);
   expect(await value("finding", "count(*)")).toBe(1);
 });
 
@@ -760,6 +796,34 @@ it("follows an observed page link to verify a listing that search did not return
       .filter((call) => call.host === "api.fetch.tinyfish.ai")
       .flatMap((call) => call.body.urls as string[]),
   ).toEqual(["https://hono.dev/releases", source]);
+});
+it("verifies a public primary source proposed by the model even when search omitted its URL", async () => {
+  mode = "direct-source";
+  await consume(await research.start("owner", taskId));
+  expect(await value("finding", "count(*)")).toBe(1);
+  expect(await value("finding", "url")).toBe(source);
+  expect(await value("finding", "evidence")).toBe(candidate.evidence);
+  expect(calls.filter((call) => call.host === "api.fetch.tinyfish.ai")).toHaveLength(1);
+});
+it("preserves evidence at the end of a long primary-source page", async () => {
+  mode = "long-source";
+  await consume(await research.start("owner", taskId));
+
+  const messages = calls.filter((call) => call.host === "model.example.com").at(-1)?.body.messages;
+
+  expect(JSON.stringify(messages)).toContain(
+    "This project is open source and available under the MIT License.",
+  );
+  expect(await value("finding", "count(*)")).toBe(1);
+});
+it("lets the model repair a formatting-only quote mismatch before dropping a valid finding", async () => {
+  mode = "repair-evidence";
+  await consume(await research.start("owner", taskId));
+  expect(await value("finding", "count(*)")).toBe(1);
+  expect(await value("finding", "evidence")).toBe(
+    "**Stable Hono release.** Fixes rendering in boundary components.",
+  );
+  expect(await value("run", "coverage")).toBe("complete");
 });
 it("resumes a partly completed tool batch without repeating its successful searches", async () => {
   mode = "expand";
