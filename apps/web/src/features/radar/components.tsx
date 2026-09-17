@@ -220,7 +220,7 @@ export function FindingCard({ item, open }: { item: Finding; open: (finding: Fin
   }
 
   return (
-    <Card className="gap-0 p-6">
+    <Card className="min-w-0 gap-0 p-6 [overflow-wrap:anywhere]">
       <div className="flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-2 text-[11px] text-muted-foreground">
           <CategoryIcon category={item.category} />
