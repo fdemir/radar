@@ -246,9 +246,7 @@ export function FindingCard({ item, open }: { item: Finding; open: (finding: Fin
             {item.title}
           </Button>
         </h3>
-        <p className="mt-3 text-[13px] leading-relaxed">{item.summary}</p>
       </div>
-      <SourceEvidence evidence={item.evidence} />
       <div className="flex items-center justify-between gap-3 border-t pt-3.5">
         <time className="text-[11px] text-muted-foreground" dateTime={item.date}>
           {formatDate(item.date)}
