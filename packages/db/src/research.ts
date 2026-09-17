@@ -149,6 +149,15 @@ export function createResearch(db: Database) {
       `,
         )
         .bind(crypto.randomUUID(), now, id, lease),
+      raw
+        .prepare(
+          `INSERT OR IGNORE INTO discord_delivery (id, connection_id, run_id, kind, next_attempt)
+        SELECT ?, c.id, r.id, 'findings', ? FROM run r JOIN task t ON t.id = r.task_id
+        JOIN discord_connection c ON c.user_id = t.user_id WHERE r.id = ? AND r.lease = ?
+        AND r.status = 'completed' AND r.findings > 0 AND t.status = 'active' AND t.revision = r.revision
+        AND c.status = 'ready' AND c.enabled = 1 AND c.created_at <= r.started`,
+        )
+        .bind(crypto.randomUUID(), now, id, lease),
     ]);
   }
 

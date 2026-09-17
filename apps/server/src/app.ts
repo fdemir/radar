@@ -1,6 +1,7 @@
 import type { Database } from "@radar/db";
 import { workspaceRoutes, type Services } from "./workspace";
 import type { createAuth } from "@radar/auth";
+import { discordRoutes } from "./discord";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
@@ -50,6 +51,7 @@ export function createApp(
       },
     });
   });
+  app.route("/api/discord", discordRoutes(auth, db, origin, services?.discord));
   app.route("/api", workspaceRoutes(auth, origin, db, services));
   app.get("/", (c) => c.text("OK"));
 

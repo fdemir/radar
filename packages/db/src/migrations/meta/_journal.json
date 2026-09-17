@@ -43,6 +43,13 @@
       "when": 1789606865562,
       "tag": "0005_finding_evidence",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1789611452837,
+      "tag": "0006_discord",
+      "breakpoints": true
     }
   ]
 }

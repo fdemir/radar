@@ -114,7 +114,7 @@ export default function Detail() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <Mail size={15} />
-            {task.email ? "Email" : "In-app only"} · {task.language}
+            {task.email ? "Email on" : "Email off"} · {task.language}
           </span>
           <div className="flex flex-wrap items-center gap-3">
             {task.status !== "draft" && (

@@ -49,8 +49,8 @@ export function TaskSetupSummary({
     { key: "language", label: "Results in", value: task.language, complete: true },
     {
       key: "email",
-      label: "Notifications",
-      value: task.email ? "Email" : "In-app only",
+      label: "Email notifications",
+      value: task.email ? "Email on" : "Email off",
       complete: true,
     },
   ];

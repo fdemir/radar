@@ -24,3 +24,7 @@ export function createEmail(config: EmailConfig) {
     },
   };
 }
+
+export { createDiscord, DiscordError, type Discord, type DiscordConfig } from "./discord";
+
+export { deliverDiscord } from "./discord-delivery";

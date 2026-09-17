@@ -5,10 +5,17 @@ import { WorkspaceError } from "@radar/db/workspace";
 import { createProviderBudget } from "@radar/db/provider-budget";
 import { ResearchDeferred } from "@radar/core/research";
 import type { ResearchJob } from "@radar/core/research";
-import { createEmail, type EmailConfig } from "@radar/notifications";
+import {
+  createEmail,
+  createDiscord,
+  deliverDiscord,
+  type DiscordConfig,
+  type EmailConfig,
+} from "@radar/notifications";
 
 type WorkerEnv = AgentConfig &
-  EmailConfig & { DB: D1Database; RESEARCH_QUEUE: Queue<ResearchJob>; CORS_ORIGIN: string };
+  EmailConfig &
+  DiscordConfig & { DB: D1Database; RESEARCH_QUEUE: Queue<ResearchJob>; CORS_ORIGIN: string };
 
 async function deliver(env: WorkerEnv) {
   const email = createEmail(env);
@@ -127,6 +134,7 @@ export default {
       for (const run of await research.queued()) await env.RESEARCH_QUEUE.send({ runId: run.id });
     }
 
+    await deliverDiscord(createDb(env), createDiscord(env), env.CORS_ORIGIN);
     await deliver(env);
   },
   async queue(batch: MessageBatch<ResearchJob>, env: WorkerEnv) {
@@ -174,6 +182,7 @@ export default {
       message.ack();
     }
 
+    await deliverDiscord(createDb(env), createDiscord(env), env.CORS_ORIGIN);
     await deliver(env);
   },
 } satisfies ExportedHandler<WorkerEnv, ResearchJob>;

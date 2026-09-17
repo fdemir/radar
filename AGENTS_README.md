@@ -53,7 +53,23 @@ All users sharing a TinyFish key share a durable provider budget: Search allows 
 
 ### Discord
 
-Discord is deferred. There is no Discord login or bot in this version.
+Discord can be connected from Settings using a personal **User Install**, with no server installation step. It links an existing Radar account; it does not add Discord sign-in. A welcome DM checks delivery before research notifications become active. New findings from all active tasks are sent independently of email preferences. Settings provides a notification switch, test message, and disconnect; successful finding DMs also appear in Notifications.
+
+Discord can refuse unsolicited DMs without a mutual server (`50278`), or due to privacy settings/blocking (`50007`). User Install and account linking do **not** guarantee delivery for every account. Radar shows the linked-but-blocked state and does not activate notifications on a failed welcome. No automatic guild join or guild installation is performed.
+
+Live validation on 2026-09-17 confirmed the local web OAuth flow, welcome DM, explicit test DM, and a background finding DM with the bot installed in **zero guilds**. Discord displayed “No servers in common.” The finding was explicitly labeled synthetic, created through the production research completion function, and sent by the scheduled worker after a process restart using only the bot token. All three deliveries were recorded as sent on their first attempt. The synthetic task was paused afterward. This validates the local integration; production deployment and a separate long-delay soak test remain outstanding.
+
+### Discord setup
+
+1. Create an application named Radar at <https://discord.com/developers/applications>.
+2. In Installation, enable **User Install** and disable **Guild Install**. Set the user install scope to `applications.commands`. No privileged intents or interaction endpoint are needed for this web-based connection flow.
+3. In OAuth2, register the callback URL used by the API. For the default local setup: `http://localhost:3000/api/discord/callback`. For production: `https://radar-api.fdemir.dev/api/discord/callback`.
+4. Set `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN` and `DISCORD_REDIRECT_URI` in the ignored `apps/server/.env` (or deployment environment). Restart the local API. Keep the redirect value identical to the one registered in Discord. An isolated worktree on API port 3002 uses `http://localhost:3002/api/discord/callback` instead.
+5. Sign into Radar, open Settings, choose **Connect to Discord**, authorize, and check both the status in Radar and the welcome DM. Repeat with an account that shares no server with the bot and verify a new finding DM after at least 15 minutes. A failed DM is a failed feasibility check, not a successful notification setup.
+
+Connection requests are bound to the signed-in Radar session with a hashed, single-use, ten-minute state. OAuth access tokens are discarded after the identity lookup. Each Discord identity can link to only one Radar account. Disconnect invalidates outstanding connection attempts and removes pending delivery records. Task edits/pauses and turning notifications off cancel pending findings. A provider request already in flight may still finish.
+
+DM sends use durable delivery records and short-term Discord nonce deduplication. Rate limits honor the provider's retry delay across requests; channel-opening failures can retry. Message POST timeouts, server errors, or abandoned sends are treated as uncertain and require an explicit test to restore delivery, since Discord does not offer durable idempotency. Radar avoids automatic resends that could duplicate an already-delivered message.
 
 ## Project layout
 
@@ -66,7 +82,7 @@ Discord is deferred. There is no Discord login or bot in this version.
 | `packages/core`          | Shared validation and schedule rules                            |
 | `packages/db`            | D1 schema, migrations, queries, atomic finding delivery records |
 | `packages/auth`          | Better Auth configuration                                       |
-| `packages/notifications` | Resend adapter                                                  |
+| `packages/notifications` | Resend and Discord delivery adapters                            |
 | `packages/ui`            | Shared components and styles                                    |
 | `packages/infra`         | Alchemy Cloudflare resources                                    |
 

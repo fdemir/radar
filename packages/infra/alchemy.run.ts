@@ -32,6 +32,9 @@ export const researchWorker = Cloudflare.Worker("research", {
     RESEARCH_QUEUE: researchQueue,
     CORS_ORIGIN: Config.string("CORS_ORIGIN"),
     ...services,
+    DISCORD_BOT_TOKEN: Config.redacted("DISCORD_BOT_TOKEN").pipe(
+      Config.withDefault(Redacted.make("")),
+    ),
   },
   dev: { port: 3001 },
 });
@@ -51,6 +54,14 @@ export const server = Cloudflare.Worker(
         DB: db,
         RESEARCH_QUEUE: researchQueue,
         ...services,
+        DISCORD_CLIENT_ID: Config.string("DISCORD_CLIENT_ID").pipe(Config.withDefault("")),
+        DISCORD_CLIENT_SECRET: Config.redacted("DISCORD_CLIENT_SECRET").pipe(
+          Config.withDefault(Redacted.make("")),
+        ),
+        DISCORD_BOT_TOKEN: Config.redacted("DISCORD_BOT_TOKEN").pipe(
+          Config.withDefault(Redacted.make("")),
+        ),
+        DISCORD_REDIRECT_URI: Config.string("DISCORD_REDIRECT_URI").pipe(Config.withDefault("")),
         CORS_ORIGIN: Config.string("CORS_ORIGIN"),
         BETTER_AUTH_SECRET: Config.redacted("BETTER_AUTH_SECRET"),
         BETTER_AUTH_URL: Cloudflare.Worker.URL,
