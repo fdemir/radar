@@ -47,7 +47,7 @@ const bindings = {
 const shared = {
   modulesRoot: root,
   compatibilityDate: "2026-07-01",
-  compatibilityFlags: ["nodejs_compat"],
+  compatibilityFlags: ["nodejs_compat", "global_fetch_strictly_public"],
   d1Databases: ["DB"],
   queueProducers: { RESEARCH_QUEUE: "research" },
   bindings,

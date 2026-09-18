@@ -8,6 +8,7 @@ import type { ResearchJob } from "@radar/core/research";
 import {
   createEmail,
   deliverEmail,
+  deliverWebhooks,
   createDiscord,
   deliverDiscord,
   type DiscordConfig,
@@ -42,6 +43,7 @@ export default {
 
     await deliverDiscord(createDb(env), createDiscord(env), env.CORS_ORIGIN);
     await deliverEmail(createDb(env), createEmail(env), env.CORS_ORIGIN);
+    await deliverWebhooks(createDb(env), env.CORS_ORIGIN);
   },
   async queue(batch: MessageBatch<ResearchJob>, env: WorkerEnv) {
     const db = createDb(env);
@@ -97,5 +99,6 @@ export default {
 
     await deliverDiscord(createDb(env), createDiscord(env), env.CORS_ORIGIN);
     await deliverEmail(createDb(env), createEmail(env), env.CORS_ORIGIN);
+    await deliverWebhooks(createDb(env), env.CORS_ORIGIN);
   },
 } satisfies ExportedHandler<WorkerEnv, ResearchJob>;

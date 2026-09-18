@@ -30,3 +30,5 @@ export { createDiscord, DiscordError, type Discord, type DiscordConfig } from ".
 export { deliverDiscord } from "./discord-delivery";
 
 export { deliverEmail } from "./email-delivery";
+
+export { deliverWebhooks, webhookSignature } from "./webhook-delivery";

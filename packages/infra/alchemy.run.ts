@@ -25,7 +25,7 @@ const services = {
 
 export const researchWorker = Cloudflare.Worker("research", {
   main: "../../apps/worker/src/index.ts",
-  compatibility: { flags: ["nodejs_compat"] },
+  compatibility: { flags: ["nodejs_compat", "global_fetch_strictly_public"] },
   crons: ["* * * * *"],
   env: {
     DB: db,
@@ -48,7 +48,7 @@ export const server = Cloudflare.Worker(
       main: "../../apps/server/src/index.ts",
       domain: stage === "production" ? "radar-api.fdemir.dev" : undefined,
       compatibility: {
-        flags: ["nodejs_compat"],
+        flags: ["nodejs_compat", "global_fetch_strictly_public"],
       },
       env: {
         DB: db,

@@ -159,6 +159,15 @@ export function createResearch(db: Database) {
         AND c.status = 'ready' AND c.enabled = 1 AND c.created_at <= r.started`,
         )
         .bind(crypto.randomUUID(), now, id, lease),
+      raw
+        .prepare(
+          `INSERT OR IGNORE INTO webhook_delivery (id, connection_id, run_id, kind, next_attempt, created_at)
+        SELECT ?, c.id, r.id, 'findings', ?, ? FROM run r JOIN task t ON t.id = r.task_id
+        JOIN webhook_connection c ON c.user_id = t.user_id WHERE r.id = ? AND r.lease = ?
+        AND r.status = 'completed' AND r.findings > 0 AND t.status = 'active' AND t.revision = r.revision
+        AND c.verified_at IS NOT NULL AND c.enabled = 1 AND c.created_at <= r.started`,
+        )
+        .bind(crypto.randomUUID(), now, now, id, lease),
     ]);
   }
 
